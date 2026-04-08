@@ -1,10 +1,5 @@
-#include "esp_mqtt.h"
-#include <string.h>
-#include "freertos/FreeRTOS.h"
-#include "freertos/task.h"
-#include "freertos/semphr.h"
-#include "esp_log.h"
 
+#include "esp_mqtt.h"
 static const char *TAG = "ESP_MQTT";
 
 static esp_err_t mqtt_event_handler_cb(esp_mqtt_event_handle_t event)
@@ -15,7 +10,7 @@ static esp_err_t mqtt_event_handler_cb(esp_mqtt_event_handle_t event)
         case MQTT_EVENT_CONNECTED:
             ESP_LOGI(TAG, "MQTT_EVENT_CONNECTED");
             if (mqtt->config.username[0] != '\0') {
-                esp_mqtt_client_subscribe(event->client, mqtt->config.username, 0);
+                esp_mqtt_client_subscribe(mqtt->client, mqtt->config.username, 0);
             }
             break;
         case MQTT_EVENT_DISCONNECTED:
@@ -62,10 +57,10 @@ int MqttRecv(MQTT* mqtt, char* buf, int len)
 
 int MqttSend(MQTT* mqtt, char* buf, int len)
 {
-    if (mqtt == NULL || buf == NULL || len <= 0) {
+    if (mqtt == NULL || mqtt->client == NULL || buf == NULL || len <= 0) {
         return 0;
     }
-    return esp_mqtt_client_publish((esp_mqtt_client_handle_t)mqtt, mqtt->config.username, buf, len, 0, 0);
+    return esp_mqtt_client_publish(mqtt->client, mqtt->config.username, buf, len, 0, 0);
 }
 
 void MqttDelete(MQTT** mqtt)
@@ -78,6 +73,11 @@ void MqttDelete(MQTT** mqtt)
     
     MqttDisconnect(m);
     
+    if (m->client != NULL) {
+        esp_mqtt_client_destroy(m->client);
+        m->client = NULL;
+    }
+    
     if (m->recvBuf != NULL) {
         if (m->recvBuf->buffer != NULL) {
             vPortFree(m->recvBuf->buffer);
@@ -85,7 +85,7 @@ void MqttDelete(MQTT** mqtt)
         vPortFree(m->recvBuf);
     }
     
-    _MQTT_FREE(m);
+    vPortFree(m);
     *mqtt = NULL;
 }
 
@@ -103,59 +103,63 @@ MQTT* NewMqtt(MQTTConfig config, int bufSize)
     mqtt->recvBuf = (RingBuf*)_MQTT_MALLOC(sizeof(RingBuf));
     if (mqtt->recvBuf == NULL) {
         ESP_LOGE(TAG, "Failed to allocate ring buffer");
-        _MQTT_FREE(mqtt);
+        vPortFree(mqtt);
         return NULL;
     }
     
     *mqtt->recvBuf = NewRingBuf(bufSize);
     if (mqtt->recvBuf->buffer == NULL) {
         ESP_LOGE(TAG, "Failed to create ring buffer");
-        _MQTT_FREE(mqtt->recvBuf);
-        _MQTT_FREE(mqtt);
+        vPortFree(mqtt->recvBuf);
+        vPortFree(mqtt);
         return NULL;
     }
     
     esp_mqtt_client_config_t mqtt_cfg = {
         .broker.address.uri = mqtt->config.url,
+        .broker.address.port = 1883,
+        .credentials.client_id = mqtt->config.cliendId,
+        .credentials.username = mqtt->config.username,
+        .credentials.authentication.password = mqtt->config.pswd,
+        .session.keepalive = 120,
+        .buffer.size = 1024,
+        .buffer.out_size = 1024
     };
     
-    esp_mqtt_client_handle_t client = esp_mqtt_client_init(&mqtt_cfg);
-    if (client == NULL) {
+    mqtt->client = esp_mqtt_client_init(&mqtt_cfg);
+    if (mqtt->client == NULL) {
         ESP_LOGE(TAG, "Failed to initialize MQTT client");
         if (mqtt->recvBuf->buffer != NULL) {
             vPortFree(mqtt->recvBuf->buffer);
         }
-        _MQTT_FREE(mqtt->recvBuf);
-        _MQTT_FREE(mqtt);
+        vPortFree(mqtt->recvBuf);
+        vPortFree(mqtt);
         return NULL;
     }
     
-    esp_mqtt_client_register_event(client, ESP_EVENT_ANY_ID, mqtt_event_handler, mqtt);
+    esp_mqtt_client_register_event(mqtt->client, ESP_EVENT_ANY_ID, mqtt_event_handler, mqtt);
     
-    esp_err_t err = esp_mqtt_client_start(client);
+    esp_err_t err = esp_mqtt_client_start(mqtt->client);
     if (err != ESP_OK) {
         ESP_LOGE(TAG, "Failed to start MQTT client: %d", err);
-        esp_mqtt_client_destroy(client);
+        esp_mqtt_client_destroy(mqtt->client);
         if (mqtt->recvBuf->buffer != NULL) {
             vPortFree(mqtt->recvBuf->buffer);
         }
-        _MQTT_FREE(mqtt->recvBuf);
-        _MQTT_FREE(mqtt);
+        vPortFree(mqtt->recvBuf);
+        vPortFree(mqtt);
         return NULL;
     }
-    
-    memcpy(mqtt, client, sizeof(esp_mqtt_client_handle_t));
     
     return mqtt;
 }
 
 int MqttDisconnect(MQTT* mqtt)
 {
-    if (mqtt == NULL) {
+    if (mqtt == NULL || mqtt->client == NULL) {
         return -1;
     }
-    esp_mqtt_client_handle_t client = (esp_mqtt_client_handle_t)mqtt;
-    esp_err_t err = esp_mqtt_client_stop(client);
+    esp_err_t err = esp_mqtt_client_stop(mqtt->client);
     if (err != ESP_OK) {
         return -1;
     }
@@ -164,11 +168,10 @@ int MqttDisconnect(MQTT* mqtt)
 
 int MqttConnect(MQTT* mqtt)
 {
-    if (mqtt == NULL) {
+    if (mqtt == NULL || mqtt->client == NULL) {
         return -1;
     }
-    esp_mqtt_client_handle_t client = (esp_mqtt_client_handle_t)mqtt;
-    esp_err_t err = esp_mqtt_client_start(client);
+    esp_err_t err = esp_mqtt_client_start(mqtt->client);
     if (err != ESP_OK) {
         return -1;
     }

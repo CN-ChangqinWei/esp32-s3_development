@@ -3,6 +3,12 @@
 #define _ESP_MQTT_H
 #include"mqtt_client.h"
 #include"ring_buf.h"
+
+#include <string.h>
+#include "freertos/FreeRTOS.h"
+#include "freertos/task.h"
+#include "freertos/semphr.h"
+#include "esp_log.h"
 #define _MQTT_MALLOC(size)    (pvPortMalloc(size))
 typedef struct{
     char url[50];
@@ -13,6 +19,7 @@ typedef struct{
 typedef struct{//根据mqtt库的形式添加成员
     RingBuf* recvBuf;
     MQTTConfig config;
+    esp_mqtt_client_handle_t* client;
 }MQTT;
 
 int   MqttRecv(MQTT* mqtt,char* buf,int len);//读取recvBuf最长len的数据到buf,返回值为接受的字节数
