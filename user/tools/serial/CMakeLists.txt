@@ -7,6 +7,6 @@ set(inc "inc")
 idf_component_register(
     SRCS ${src}
     INCLUDE_DIRS ${inc}
-    REQUIRES esp_driver_uart
+    REQUIRES esp_driver_uart ring_buf
 )
 
