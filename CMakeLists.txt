@@ -3,7 +3,7 @@
 cmake_minimum_required(VERSION 3.16)
 
 # 添加自定义组件目录
-set(EXTRA_COMPONENT_DIRS user/components user/tools)
+set(EXTRA_COMPONENT_DIRS user/components user/tools user/services)
 
 include($ENV{IDF_PATH}/tools/cmake/project.cmake)
 project(esp32_development)
