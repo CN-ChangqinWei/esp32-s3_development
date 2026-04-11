@@ -111,7 +111,7 @@ uint8_t SerialsInit(void) {
         .uart_queue = NULL
     };
 
-    config.uart_config.baud_rate = 115200;
+    config.uart_config.baud_rate = 9600;
     config.uart_config.data_bits = UART_DATA_8_BITS;
     config.uart_config.parity = UART_PARITY_DISABLE;
     config.uart_config.stop_bits = UART_STOP_BITS_1;

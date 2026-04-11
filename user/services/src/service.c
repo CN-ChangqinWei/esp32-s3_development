@@ -5,40 +5,48 @@
 #include "serial.h"
 #include "motor_repo.h"
 #include "motor_service.h"
+#include "freertos/FreeRTOS.h"
 static Service service={0};
 static SerialComm* serialComm=NULL;
-void SerivceInit(){
-    
-    SerialsInit();
-    serialComm=NewSerialComm(serial1);
-    service.listener=NewCommunicationFromSerial(serialComm);
-    if(service.listener != NULL){
-        //CommSendPackage(service.listener,"hello",strlen("hello"));
-    }
-    RouterInit();
-    RouterHandlerPkg healthHandler = {HealthCommHandler,NULL};
-    RouterRegister(Health, healthHandler);
-    RouterHandlerPkg errHandler ={ServiceErrHandler,&service};
-    RouterSetErrHandler(errHandler);
-}
 
-void ServiceExec(){
-    RouterExec();
-}
-void ServiceCommHanlder(){
+static void ServiceCommHanlder(void* p){
     static int cnt=0;
-    if(service.listener == NULL) return;
+    Service* srv = (Service*)p;
+    if(srv->listener == NULL) return;
     // cnt++;
     // if(cnt>=50){
     //     cnt=0;
     //     CommSendPackage(service.listener,"runing\n",strlen("runing\n"));
     // }
     int len=0;
-    char* buf=CommRecvPackage(service.listener,&len);
+    char* buf=CommRecvPackage(srv->listener,&len);
     if(NULL==buf) return;
     RouterAnlyPackage(buf,len);
     //CommSendPackage(service.listener,buf,len);
 }
+
+void SerivceInit(){
+    
+    SerialsInit();
+    serialComm=NewSerialComm(serial1);
+    service.listener=NewCommunicationFromSerial(serialComm);
+    if(service.listener != NULL){
+        CommSendPackage(service.listener,(uint8_t*)"hello",strlen("hello"));
+    }
+    RouterInit();
+    RouterHandlerPkg healthHandler = {HealthCommHandler,NULL};
+    RouterRegister(Health, healthHandler);
+    RouterHandlerPkg errHandler ={ServiceErrHandler,&service};
+    RouterSetErrHandler(errHandler);
+    xTaskCreate(ServiceCommHanlder, "service_comm_handler", 2048,
+                                  &service, 4, &service.handler);
+    
+}
+
+void ServiceExec(){
+    RouterExec();
+}
+
 void ServiceComm(char* buf,int len){
     if(service.listener == NULL) return;
     CommSendPackage(service.listener,(uint8_t*)buf,len);
