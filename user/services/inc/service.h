@@ -10,11 +10,13 @@
 typedef struct{
     Communication* listener;
     TaskHandle_t handler;
+    Router* router;
 }Service;
 
-void SerivceInit();
-void ServiceExec();
+Service* NewService();
+void DeleteService(Service* service);
+void ServiceExec(Service* service);
 
-void ServiceComm(char* buf,int len);
+void ServiceComm(Service* service,char* buf,int len);
 uint16_t ServiceErrHandler(void*instance,void* arg);
 #endif

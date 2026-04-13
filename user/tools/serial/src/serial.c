@@ -9,9 +9,6 @@
 
 static const char* TAG = "SERIAL";
 
-Serial* serial1 = NULL;
-uint8_t sendBuf1[_SERIAL_BUF_SIZE] = {0};
-
 // 接收任务函数
 static void SerialRxTask(void* pvParameters) {
     Serial* serial = (Serial*)pvParameters;
@@ -101,31 +98,7 @@ void DeleteSerial(Serial* serial) {
     vPortFree(serial);
 }
 
-uint8_t SerialsInit(void) {
-    // 默认配置：UART2, 115200, 8N1
-    SerialConfig config = {
-        .uart_num = UART_NUM_2,
-        .rx_buffer_size = _SERIAL_DMA_BUF_SIZE,
-        .tx_buffer_size = 0,
-        .queue_size = 0,
-        .uart_queue = NULL
-    };
-
-    config.uart_config.baud_rate = 9600;
-    config.uart_config.data_bits = UART_DATA_8_BITS;
-    config.uart_config.parity = UART_PARITY_DISABLE;
-    config.uart_config.stop_bits = UART_STOP_BITS_1;
-    config.uart_config.flow_ctrl = UART_HW_FLOWCTRL_DISABLE;
-    config.uart_config.source_clk = UART_SCLK_DEFAULT;
-
-    serial1 = NewSerial(&config, _SERIAL_BUF_SIZE, sendBuf1, _SERIAL_BUF_SIZE);
-    if (serial1 == NULL) return 1;
-
-    // 启动接收任务
-    SerialStartRxTask(serial1, 5);
-
-    return 0;
-}
+// SerialsInit 已迁移到 global.c 的 GlobalInit() 中
 
 uint8_t SerialStartRxTask(Serial* serial, UBaseType_t priority) {
     if (serial == NULL) return 1;

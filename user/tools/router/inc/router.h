@@ -26,12 +26,14 @@ typedef struct{
     RouterHandlerPkg errHandler;
 }Router;
 
-uint8_t RouterInit();//初始化全局router单例
-uint8_t RouterExec();
-uint8_t RouterRegister(uint32_t protocol,RouterHandlerPkg handler);//注册handler
-uint8_t RouterAddTask(Task tk);
-void    RouterAnlyPackage(void*,int len);
-void    RouterStopExec();
-void    RouterSetErrHandler(RouterHandlerPkg pkg);
+Router* NewRouter();//创建Router实例
+void DeleteRouter(Router* router);//删除Router实例
+uint8_t RouterInit(Router* router);//初始化Router实例
+uint8_t RouterExec(Router* router);
+uint8_t RouterRegister(Router* router,uint32_t protocol,RouterHandlerPkg handler);//注册handler
+uint8_t RouterAddTask(Router* router,Task tk);
+void    RouterAnlyPackage(Router* router,void*,int len);
+void    RouterStopExec(Router* router);
+void    RouterSetErrHandler(Router* router,RouterHandlerPkg pkg);
 
 #endif

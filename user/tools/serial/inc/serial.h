@@ -45,8 +45,8 @@ Serial* NewSerial(const SerialConfig* config,
                   uint32_t sendLen);
 void DeleteSerial(Serial* serial);
 
-// 初始化所有串口
-uint8_t SerialsInit(void);
+// 初始化所有串口（已迁移到 global.c 的 GlobalInit() 中）
+// uint8_t SerialsInit(void);
 
 // 中断接收方式
 void SerialStartRecvIT(Serial* serial);
