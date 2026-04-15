@@ -55,7 +55,7 @@ void* CommRecvPackage(Communication* comm, int* len) {
         // 接收数据写入内存（写入到当前偏移位置）
         uint32_t recvBytes = comm->interface.recv(comm->instance, comm->packageBuf + (comm->totalLen - comm->recvLen), comm->recvLen);
         comm->recvLen -= recvBytes;
-        
+        // CommSendPackage(comm,(uint8_t*)"data",4);
         if(recvBytes!=0)
         
         

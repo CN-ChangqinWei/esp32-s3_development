@@ -171,7 +171,9 @@ static void ServiceCommHanlder(void* p){
         }
         int len=0;
         char* buf=CommRecvPackage(srv->listener,&len);
+        
         if(buf != NULL) {
+            //CommSendPackage(srv->listener,(uint8_t*)buf,len);
             RouterAnlyPackage(srv->router,buf,len);
         }
         vTaskDelay(pdMS_TO_TICKS(10));  // 10ms 延时，避免CPU占用过高
@@ -187,13 +189,14 @@ static void ServiceInit(Service* service){
     }
     service->router = NewRouter();
     if(service->router != NULL){
-        RouterInit(service->router);
+        
         RouterHandlerPkg healthHandler = {HealthCommHandler,service};
         RouterRegister(service->router,Health, healthHandler);
         RouterHandlerPkg motorHandler = {MotorHandler,service};
         RouterRegister(service->router,PROTO_MOTOR, motorHandler);
         RouterHandlerPkg errHandler ={ServiceErrHandler,service};
         RouterSetErrHandler(service->router,errHandler);
+        RouterStart(service->router);
     }
     xTaskCreate(ServiceCommHanlder, "service_comm_handler", 2048,
                               service, 4, &service->handler);

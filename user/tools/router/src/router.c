@@ -3,6 +3,21 @@
 #include <string.h>
 
 static char* routerMsg=NULL;
+static void RouterCommHanlder(void* p){
+    if(NULL==p) return;
+    Router* r=(Router*)p;
+    while(1){
+        RouterExec(r);
+        vTaskDelay(pdMS_TO_TICKS(10));
+    }
+}
+void RouterStart(Router* router){
+    if(router != NULL){
+        xTaskCreate(RouterCommHanlder, "RouterTask", 2048, router, 10, NULL);
+    }
+}
+
+
 char* generateMsg(const char* msg){
     int len=strlen(msg);
     if(len<=0) return NULL;

@@ -35,5 +35,5 @@ uint8_t RouterAddTask(Router* router,Task tk);
 void    RouterAnlyPackage(Router* router,void*,int len);
 void    RouterStopExec(Router* router);
 void    RouterSetErrHandler(Router* router,RouterHandlerPkg pkg);
-
+void    RouterStart(Router* router);
 #endif

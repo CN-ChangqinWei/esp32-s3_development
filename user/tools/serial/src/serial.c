@@ -26,6 +26,7 @@ static void SerialRxTask(void* pvParameters) {
             // 将数据存入环形缓冲区
             RingBufAddData(&serial->recvRingBuf, (char*)tempBuf, len);
         }
+        vTaskDelay(pdMS_TO_TICKS(10));
     }
 }
 
