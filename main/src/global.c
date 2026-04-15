@@ -164,11 +164,18 @@ static void InitSerials(void) {
 
 static void ServiceCommHanlder(void* p){
     Service* srv = (Service*)p;
-    if(srv->listener == NULL) return;
-    int len=0;
-    char* buf=CommRecvPackage(srv->listener,&len);
-    if(NULL==buf) return;
-    RouterAnlyPackage(srv->router,buf,len);
+    while(1){
+        if(srv->listener == NULL) {
+            vTaskDelay(pdMS_TO_TICKS(100));
+            continue;
+        }
+        int len=0;
+        char* buf=CommRecvPackage(srv->listener,&len);
+        if(buf != NULL) {
+            RouterAnlyPackage(srv->router,buf,len);
+        }
+        vTaskDelay(pdMS_TO_TICKS(10));  // 10ms 延时，避免CPU占用过高
+    }
 }
 
 static void ServiceInit(Service* service){
@@ -198,7 +205,7 @@ void GlobalInit(void) {
     ESP_LOGI(TAG, "Starting global initialization...");
 
     // 1. 初始化 GPIO 引脚
-    GpioInit();
+    //GpioInit();
 
     // 2. 初始化串口
     InitSerials();
