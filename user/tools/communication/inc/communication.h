@@ -1,28 +1,27 @@
 #ifndef _COMMUNICATION_H
 #define _COMMUNICATION_H
-#include"freertos/FreeRTOS.h"
+
+#include "freertos/FreeRTOS.h"
 #include <stdint.h>
-typedef enum{
-    MODE_LEN=0,
-    MODE_DATA
-}CommStatu;
-typedef struct{
-    uint32_t (*send)(void*,uint8_t*,uint32_t);//输入参数分别是实例，缓冲区，长度
-    uint32_t (*recv)(void*,uint8_t*,uint32_t);
-}CommInterface;
-typedef struct{
+
+// 通信接口抽象 - 只保留基础 send/recv
+typedef struct {
+    uint32_t (*send)(void* instance, uint8_t* buf, uint32_t len);
+    uint32_t (*recv)(void* instance, uint8_t* buf, uint32_t len);
+} CommInterface;
+
+// Communication 实例 - 简化，只保留实例和接口
+typedef struct {
     CommInterface interface;
     void* instance;
-    uint16_t statu;//接收模式
-    uint32_t recvLen;//接收DATA模式下还需要接收的长度
-    uint32_t totalLen;
-    uint8_t* packageBuf;
-    uint32_t bufCur;
-}Communication;
-Communication* NewCommunication(void* instance,CommInterface interface);
+} Communication;
+
+// 创建/销毁
+Communication* NewCommunication(void* instance, CommInterface interface);
 void DeleteCommunication(Communication* comm);
-void * CommRecvPackage(Communication* comm,int*len);
-void   CommSendPackage(Communication* comm,uint8_t* data,int len);
-void   CommHandler(Communication* comm);
+
+// 基础操作 - 直接透传到底层
+uint32_t CommSend(Communication* comm, uint8_t* buf, uint32_t len);
+uint32_t CommRecv(Communication* comm, uint8_t* buf, uint32_t len);
 
 #endif

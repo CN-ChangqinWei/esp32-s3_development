@@ -6,6 +6,7 @@
 #include "driver/gpio.h"
 #include "esp_log.h"
 #include "communication.h"
+#include "serial_proto.h"
 #include "router.h"
 #include "health_comm.h"
 #include "motor_comm.h"
@@ -162,44 +163,56 @@ static void InitSerials(void) {
 
 // ==================== Service 初始化 ====================
 
-static void ServiceCommHanlder(void* p){
+static void ServiceCommHanlder(void* p) {
     Service* srv = (Service*)p;
-    while(1){
-        if(srv->listener == NULL) {
+    while (1) {
+        if (srv->proto == NULL) {
             vTaskDelay(pdMS_TO_TICKS(100));
             continue;
         }
-        int len=0;
-        char* buf=CommRecvPackage(srv->listener,&len);
-        
-        if(buf != NULL) {
-            //CommSendPackage(srv->listener,(uint8_t*)buf,len);
-            RouterAnlyPackage(srv->router,buf,len);
+        int len = 0;
+        void* buf = SerialProtoRecvPackage(srv->proto, &len);
+
+        if (buf != NULL) {
+            RouterAnlyPackage(srv->router, buf, len);
         }
         vTaskDelay(pdMS_TO_TICKS(10));  // 10ms 延时，避免CPU占用过高
     }
 }
 
-static void ServiceInit(Service* service){
-    if(service == NULL) return;
-    
-    service->listener = NewCommunicationFromSerial(serialComm);
-    if(service->listener != NULL){
-        CommSendPackage(service->listener,(uint8_t*)"hello",strlen("hello"));
+static void ServiceInit(Service* service) {
+    if (service == NULL) return;
+
+    // 创建 Communication 层
+    Communication* comm = NewCommunicationFromSerial(serialComm);
+    if (comm == NULL) {
+        ESP_LOGE(TAG, "Failed to create communication");
+        return;
     }
+
+    // 创建 Protocol 层（包装 Communication）
+    service->proto = NewSerialProto(comm);
+    if (service->proto == NULL) {
+        ESP_LOGE(TAG, "Failed to create serial proto");
+        DeleteCommunication(comm);
+        return;
+    }
+
+    // 发送 hello
+    SerialProtoSendPackage(service->proto, (uint8_t*)"hello", strlen("hello"));
+
     service->router = NewRouter();
-    if(service->router != NULL){
-        
-        RouterHandlerPkg healthHandler = {HealthCommHandler,service};
-        RouterRegister(service->router,Health, healthHandler);
-        RouterHandlerPkg motorHandler = {MotorHandler,service};
-        RouterRegister(service->router,PROTO_MOTOR, motorHandler);
-        RouterHandlerPkg errHandler ={ServiceErrHandler,service};
-        RouterSetErrHandler(service->router,errHandler);
+    if (service->router != NULL) {
+        RouterHandlerPkg healthHandler = {HealthCommHandler, service};
+        RouterRegister(service->router, Health, healthHandler);
+        RouterHandlerPkg motorHandler = {MotorHandler, service};
+        RouterRegister(service->router, PROTO_MOTOR, motorHandler);
+        RouterHandlerPkg errHandler = {ServiceErrHandler, service};
+        RouterSetErrHandler(service->router, errHandler);
         RouterStart(service->router);
     }
     xTaskCreate(ServiceCommHanlder, "service_comm_handler", 2048,
-                              service, 4, &service->handler);
+                service, 4, &service->handler);
 }
 
 // ==================== 全局初始化入口 ====================
