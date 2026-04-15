@@ -31,33 +31,68 @@ Router* NewRouter(){
     Router* router = pvPortMalloc(sizeof(Router));
     if(router != NULL){
         memset(router, 0, sizeof(Router));
+        // 创建互斥锁
+        router->mutex = xSemaphoreCreateMutex();
+        if(router->mutex == NULL){
+            vPortFree(router);
+            return NULL;
+        }
     }
     return router;
 }
 
 void DeleteRouter(Router* router){
     if(router != NULL){
+        // 删除互斥锁
+        if(router->mutex != NULL){
+            vSemaphoreDelete(router->mutex);
+        }
         vPortFree(router);
     }
 }
 
 uint8_t RouterInit(Router* router){
     if(router == NULL) return 1;
+    // 保存互斥锁句柄
+    SemaphoreHandle_t oldMutex = router->mutex;
     memset(router, 0, sizeof(Router));
+    // 如果之前没有锁，创建新锁；否则恢复旧锁
+    if(oldMutex == NULL){
+        router->mutex = xSemaphoreCreateMutex();
+        if(router->mutex == NULL) return 1;
+    } else {
+        router->mutex = oldMutex;
+    }
     return 0;
 }//初始化Router实例
 
 uint8_t RouterExec(Router* router){
     if(router == NULL) return 1;
+    if(router->mutex == NULL) return 1;
+    
+    // 获取互斥锁
+    if(xSemaphoreTake(router->mutex, portMAX_DELAY) != pdTRUE){
+        return 1;
+    }
+    
     if(router->taskHeadCur!=router->taskTailCur){
         Task tk=router->taskQue[router->taskHeadCur];
         
-        if(tk.handler.handler!=NULL)tk.handler.handler(tk.handler.instance,tk.arg);
         router->taskHeadCur++;
         router->taskHeadCur%=_ROUTER_MAX_TASK_CNT;
+        
+        // 释放锁后再执行handler（避免死锁）
+        xSemaphoreGive(router->mutex);
+        
+        if(tk.handler.handler!=NULL){
+            tk.handler.handler(tk.handler.instance,tk.arg);
+        }
         vPortFree(tk.arg);
+        return 0;
     }
     
+    // 释放互斥锁
+    xSemaphoreGive(router->mutex);
     return 0;
 }
 
@@ -70,11 +105,24 @@ uint8_t RouterRegister(Router* router,uint32_t protocol,RouterHandlerPkg handler
 
 uint8_t RouterAddTask(Router* router,Task tk){
     if(router == NULL) return 1;
+    if(router->mutex == NULL) return 1;
+    
+    // 获取互斥锁
+    if(xSemaphoreTake(router->mutex, portMAX_DELAY) != pdTRUE){
+        return 1;
+    }
+    
     uint32_t check = (router->taskHeadCur+1)%(_ROUTER_MAX_TASK_CNT+1);
-    if(check==router->taskTailCur) return 1;
+    if(check==router->taskTailCur) {
+        xSemaphoreGive(router->mutex);//释放锁
+        return 1;
+    }
     router->taskQue[router->taskTailCur]=tk;
     router->taskTailCur++;
     router->taskTailCur%=_ROUTER_MAX_TASK_CNT+1;
+    
+    // 释放互斥锁
+    xSemaphoreGive(router->mutex);
     return 0;
 }
 

@@ -2,6 +2,7 @@
 #define _ROUTER_H
 #include <stdint.h>
 #include "freertos/FreeRTOS.h"
+#include "freertos/semphr.h"
 #define _ROUTER_MAX_CNT 100
 #define _ROUTER_MAX_TASK_CNT 100
 typedef uint16_t (*RouterHandler)(void*instance,void*arg);
@@ -24,6 +25,7 @@ typedef struct{
     uint32_t taskTailCur;//循环队列尾部
     uint8_t  execFlag;
     RouterHandlerPkg errHandler;
+    SemaphoreHandle_t mutex;//互斥锁，保护任务队列
 }Router;
 
 Router* NewRouter();//创建Router实例
