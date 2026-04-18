@@ -82,11 +82,11 @@ MotorDomain MotorDomainReserialize(char* jsonStr) {
     return domain;
 }
 
-char* MotorDomainSerialize(MotorDomain* domain) {
-    if (domain == NULL) {
+char* MotorDomainSerialize(void* data) {
+    if (data == NULL) {
         return NULL;
     }
-    
+    MotorDomain* domain=data;
     cJSON* root = cJSON_CreateObject();
     if (root == NULL) {
         return NULL;

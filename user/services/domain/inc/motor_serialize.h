@@ -3,7 +3,7 @@
 #include"motor_domain.h"
 #include"cJSON.h"
 MotorDomain MotorDomainReserialize(char* jsonStr);
-char*       MotorDomainSerialize(MotorDomain* domain);
+char*       MotorDomainSerialize(void* domain);
 
 
 #endif
