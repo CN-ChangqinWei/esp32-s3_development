@@ -44,7 +44,8 @@
 #include <limits.h>
 #include <ctype.h>
 #include <float.h>
-
+#include "freertos/FreeRTOS.h"
+#include "freertos_extra.h"
 #ifdef ENABLE_LOCALES
 #include <locale.h>
 #endif
@@ -175,9 +176,9 @@ static void * CJSON_CDECL internal_realloc(void *pointer, size_t size)
     return realloc(pointer, size);
 }
 #else
-#define internal_malloc malloc
-#define internal_free free
-#define internal_realloc realloc
+#define internal_malloc pvPortMalloc
+#define internal_free vPortFree
+#define internal_realloc pvPortRealloc
 #endif
 
 /* strlen of character literals resolved at compile time */
