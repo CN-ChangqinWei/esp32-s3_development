@@ -1,0 +1,15 @@
+{
+    "protocol": 0,
+    "id": 1,
+    "powerOn": 1,
+    "numAngel": 0,
+    "denAngel": 360,
+    "maxAngel": 180,
+    "encode": 0,
+    "spEncode": 0,
+    "pwmNum": 0,
+    "pwmDen": 100,
+    "spNumAngel": 0,
+    "spDenAngel": 60,
+    "mode": 0
+}
