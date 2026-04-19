@@ -4,7 +4,7 @@
 #include "freertos/FreeRTOS.h"
 #include <stdint.h>
 #include "communication.h"
-
+#include "proto.h"
 // 协议接收状态
 typedef enum {
     PROTO_STATE_LEN = 0,   // 等待接收4字节长度
@@ -17,21 +17,21 @@ typedef struct {
     ProtoState state;          // 当前接收状态
     uint32_t totalLen;         // 总数据长度
     uint32_t remainLen;        // 剩余待接收长度
-    uint8_t* packageBuf;       // 包缓冲区
+    char* packageBuf;       // 包缓冲区
 } SerialProto;
 
 // 创建/销毁
 SerialProto* NewSerialProto(Communication* comm);
-void DeleteSerialProto(SerialProto* proto);
+
 
 // 初始化
-uint8_t SerialProtoInit(SerialProto* proto, Communication* comm);
+char SerialProtoInit(SerialProto* proto, Communication* comm);
 
 // 包操作
 // 接收完整包（非阻塞，返回NULL表示未收完）
-void* SerialProtoRecvPackage(SerialProto* proto, int* len);
-
+void* SerialProtoRecvPackage(void* proto, int* len);
+void DeleteSerialProto(void* p);
 // 发送包（先发4字节长度，再发数据）
-void SerialProtoSendPackage(SerialProto* proto, uint8_t* data, int len);
-
+int SerialProtoSendPackage(void* proto, char* data, int len);
+ProtoInterface SerialProtoInterface();
 #endif

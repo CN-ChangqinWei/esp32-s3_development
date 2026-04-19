@@ -14,20 +14,20 @@ typedef struct {
     gpio_num_t rx_pin;      // RX 引脚
     gpio_num_t rts_pin;     // RTS 引脚 (流控，可选)
     gpio_num_t cts_pin;     // CTS 引脚 (流控，可选)
-    uint8_t use_flow_ctrl;  // 是否使用硬件流控
+    char use_flow_ctrl;  // 是否使用硬件流控
 } UartPinMap;
 
 // LED 引脚映射
 typedef struct {
     gpio_num_t pin;         // LED 引脚
-    uint8_t active_level;   // 有效电平 (0=低电平, 1=高电平)
+    char active_level;   // 有效电平 (0=低电平, 1=高电平)
 } LedPinMap;
 
 // 按键引脚映射
 typedef struct {
     gpio_num_t pin;         // 按键引脚
-    uint8_t active_level;   // 有效电平 (0=低电平, 1=高电平)
-    uint8_t internal_pull;  // 是否使能内部上拉/下拉
+    char active_level;   // 有效电平 (0=低电平, 1=高电平)
+    char internal_pull;  // 是否使能内部上拉/下拉
 } ButtonPinMap;
 
 // 电机控制引脚映射 (示例)
@@ -51,7 +51,7 @@ extern GpioPinMap g_gpio_map;
 
 // Serial 全局实例
 extern Serial* serial1;
-extern uint8_t sendBuf1[255];
+extern char sendBuf1[255];
 
 // SerialComm 全局实例
 extern SerialComm* serialComm;

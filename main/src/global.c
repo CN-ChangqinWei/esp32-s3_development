@@ -55,7 +55,7 @@ GpioPinMap g_gpio_map = {
 
 // Serial 全局实例定义
 Serial* serial1 = NULL;
-uint8_t sendBuf1[_SERIAL_BUF_SIZE] = {0};
+char sendBuf1[_SERIAL_BUF_SIZE] = {0};
 
 // SerialComm 全局实例定义
 SerialComm* serialComm = NULL;
@@ -163,22 +163,7 @@ static void InitSerials(void) {
 
 // ==================== Service 初始化 ====================
 
-static void ServiceCommHanlder(void* p) {
-    Service* srv = (Service*)p;
-    while (1) {
-        if (srv->proto == NULL) {
-            vTaskDelay(pdMS_TO_TICKS(100));
-            continue;
-        }
-        int len = 0;
-        void* buf = SerialProtoRecvPackage(srv->proto, &len);
 
-        if (buf != NULL) {
-            RouterAnlyPackage(srv->router, buf, len);
-        }
-        vTaskDelay(pdMS_TO_TICKS(10));  // 10ms 延时，避免CPU占用过高
-    }
-}
 
 static void ServiceInit(Service* service) {
     if (service == NULL) return;
@@ -191,7 +176,7 @@ static void ServiceInit(Service* service) {
     }
 
     // 创建 Protocol 层（包装 Communication）
-    service->proto = NewSerialProto(comm);
+    service->proto = NewProto(NewSerialProto(comm),SerialProtoInterface());
     if (service->proto == NULL) {
         ESP_LOGE(TAG, "Failed to create serial proto");
         DeleteCommunication(comm);
@@ -199,7 +184,7 @@ static void ServiceInit(Service* service) {
     }
 
     // 发送 hello
-    SerialProtoSendPackage(service->proto, (uint8_t*)"hello", strlen("hello"));
+    ProtoSendPackage(service->proto, (char*)"hello", strlen("hello"));
 
     service->router = NewRouter();
     if (service->router != NULL) {
@@ -211,8 +196,7 @@ static void ServiceInit(Service* service) {
         RouterSetErrHandler(service->router, errHandler);
         RouterStart(service->router);
     }
-    xTaskCreate(ServiceCommHanlder, "service_comm_handler", 2048,
-                service, 4, &service->handler);
+    
 }
 
 // ==================== 全局初始化入口 ====================

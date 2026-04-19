@@ -8,7 +8,7 @@
 typedef struct {
     Serial* serial;
     // 临时接收缓冲区（用于单次recv调用）
-    uint8_t* tempRecvBuf;
+    char* tempRecvBuf;
     uint32_t tempRecvLen;
     uint32_t tempRecvCur;
 } SerialComm;
@@ -20,10 +20,10 @@ SerialComm* NewSerialComm(Serial* serial);
 void DeleteSerialComm(SerialComm* serialComm);
 
 // 适配 Communication 接口的发送函数
-uint32_t SerialCommSend(void* instance, uint8_t* data, uint32_t len);
+uint32_t SerialCommSend(void* instance, char* data, uint32_t len);
 
 // 适配 Communication 接口的接收函数
-uint32_t SerialCommRecv(void* instance, uint8_t* data, uint32_t len);
+uint32_t SerialCommRecv(void* instance, char* data, uint32_t len);
 
 // 获取 SerialComm 对应的 CommInterface
 CommInterface GetSerialCommInterface(void);

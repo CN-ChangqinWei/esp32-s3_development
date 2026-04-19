@@ -9,7 +9,7 @@ uint16_t MotorHandler(void* instance, void* arg) {
     int res = MotorExec(service, arg);
     MotorDomainReply re = {PROTO_MOTOR, res};
     if (service != NULL && service->proto != NULL) {
-        SerialProtoSendPackage(service->proto, (uint8_t*)&re, sizeof(MotorDomainReply));
+        SerialProtoSendPackage(service->proto, (char*)&re, sizeof(MotorDomainReply));
     }
     return 0;
 }

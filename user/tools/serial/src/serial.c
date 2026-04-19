@@ -12,7 +12,7 @@ static const char* TAG = "SERIAL";
 // 接收任务函数
 static void SerialRxTask(void* pvParameters) {
     Serial* serial = (Serial*)pvParameters;
-    uint8_t* tempBuf = pvPortMalloc(_SERIAL_DMA_BUF_SIZE);
+    char* tempBuf = pvPortMalloc(_SERIAL_DMA_BUF_SIZE);
     if (tempBuf == NULL) {
         ESP_LOGE(TAG, "Failed to allocate temp buffer for RX task");
         vTaskDelete(NULL);
@@ -32,7 +32,7 @@ static void SerialRxTask(void* pvParameters) {
 
 Serial* NewSerial(const SerialConfig* config,
                   int recvBufSize,
-                  uint8_t* sendBuf,
+                  char* sendBuf,
                   uint32_t sendLen) {
     if (config == NULL) return NULL;
 
@@ -101,7 +101,7 @@ void DeleteSerial(Serial* serial) {
 
 // SerialsInit 已迁移到 global.c 的 GlobalInit() 中
 
-uint8_t SerialStartRxTask(Serial* serial, UBaseType_t priority) {
+char SerialStartRxTask(Serial* serial, UBaseType_t priority) {
     if (serial == NULL) return 1;
 
     BaseType_t ret = xTaskCreate(SerialRxTask, "serial_rx_task", 2048,
@@ -117,11 +117,11 @@ void SerialStartRecvIT(Serial* serial) {
     }
 }
 
-uint8_t SerialRecvIT(Serial* serial) {
+char SerialRecvIT(Serial* serial) {
     // 从 UART 读取一个字节并存入环形缓冲区
     if (serial == NULL) return 1;
 
-    uint8_t byte;
+    char byte;
     int len = uart_read_bytes(serial->uart_num, &byte, 1, 0);
     if (len > 0) {
         RingBufAddByte(&serial->recvRingBuf, (char)byte);
@@ -138,7 +138,7 @@ void SerialStartRecvDMA(Serial* serial) {
     }
 }
 
-uint8_t SerialRecvDMA(Serial* serial) {
+char SerialRecvDMA(Serial* serial) {
     // ESP32 UART 驱动会自动将数据存入内部缓冲区
     // 这里从内部缓冲区读取并存入 ringbuf
     if (serial == NULL) return 1;
@@ -156,7 +156,7 @@ uint8_t SerialRecvDMA(Serial* serial) {
     return 0;
 }
 
-uint8_t* SerialRecvPause(Serial* serial, uint8_t* buf, uint32_t len, uint32_t timeout) {
+char* SerialRecvPause(Serial* serial, char* buf, uint32_t len, uint32_t timeout) {
     if (serial == NULL || buf == NULL || len == 0) return NULL;
 
     // 使用阻塞方式读取
@@ -184,7 +184,7 @@ void SerialDmaHandler(Serial* serial) {
     SerialRecvDMA(serial);
 }
 
-uint8_t SerialSetRecvBuf(Serial* serial, int size) {
+char SerialSetRecvBuf(Serial* serial, int size) {
     if (serial == NULL || size <= 0) return 1;
 
     if (serial->recvRingBuf.buffer != NULL) {
@@ -194,7 +194,7 @@ uint8_t SerialSetRecvBuf(Serial* serial, int size) {
     return (serial->recvRingBuf.buffer != NULL) ? 0 : 1;
 }
 
-uint8_t SerialSetSendBuf(Serial* serial, uint8_t* buf, uint32_t len) {
+char SerialSetSendBuf(Serial* serial, char* buf, uint32_t len) {
     if (serial == NULL || buf == NULL) return 1;
     serial->sendBuf = buf;
     serial->sendLen = len;
@@ -215,7 +215,7 @@ uint32_t SerialSend(Serial* serial, uint32_t len) {
 uint32_t SerialRecv(Serial* serial) {
     if (serial == NULL) return 0;
 
-    uint8_t tempBuf[_SERIAL_BUF_SIZE];
+    char tempBuf[_SERIAL_BUF_SIZE];
     int len = uart_read_bytes(serial->uart_num, tempBuf, _SERIAL_BUF_SIZE, 0);
     if (len > 0) {
         RingBufAddData(&serial->recvRingBuf, (char*)tempBuf, len);
@@ -224,7 +224,7 @@ uint32_t SerialRecv(Serial* serial) {
     return 0;
 }
 
-uint32_t SerialSendUseOtherBuf(Serial* serial, uint8_t* buf, uint32_t len) {
+uint32_t SerialSendUseOtherBuf(Serial* serial, char* buf, uint32_t len) {
     if (serial == NULL || buf == NULL || len == 0) return 0;
 
     if (buf == serial->sendBuf) {
@@ -238,7 +238,7 @@ uint32_t SerialSendUseOtherBuf(Serial* serial, uint8_t* buf, uint32_t len) {
     return (sent > 0) ? (uint32_t)sent : 0;
 }
 
-uint32_t SerialRecvUseOtherBuf(Serial* serial, uint8_t* buf, uint32_t len) {
+uint32_t SerialRecvUseOtherBuf(Serial* serial, char* buf, uint32_t len) {
     if (serial == NULL || buf == NULL || len == 0) return 0;
 
     int rx_len = uart_read_bytes(serial->uart_num, buf, len, 0);

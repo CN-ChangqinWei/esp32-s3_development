@@ -6,8 +6,8 @@
 
 // 通信接口抽象 - 只保留基础 send/recv
 typedef struct {
-    uint32_t (*send)(void* instance, uint8_t* buf, uint32_t len);
-    uint32_t (*recv)(void* instance, uint8_t* buf, uint32_t len);
+    uint32_t (*send)(void* instance, char* buf, uint32_t len);
+    uint32_t (*recv)(void* instance, char* buf, uint32_t len);
 } CommInterface;
 
 // Communication 实例 - 简化，只保留实例和接口
@@ -21,7 +21,7 @@ Communication* NewCommunication(void* instance, CommInterface interface);
 void DeleteCommunication(Communication* comm);
 
 // 基础操作 - 直接透传到底层
-uint32_t CommSend(Communication* comm, uint8_t* buf, uint32_t len);
-uint32_t CommRecv(Communication* comm, uint8_t* buf, uint32_t len);
+uint32_t CommSend(Communication* comm, char* buf, uint32_t len);
+uint32_t CommRecv(Communication* comm, char* buf, uint32_t len);
 
 #endif

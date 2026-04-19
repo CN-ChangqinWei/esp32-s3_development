@@ -19,7 +19,7 @@ void DeleteSerialComm(SerialComm* serialComm) {
     }
 }
 
-uint32_t SerialCommSend(void* instance, uint8_t* data, uint32_t len) {
+uint32_t SerialCommSend(void* instance, char* data, uint32_t len) {
     if (instance == NULL || data == NULL || len == 0) return 0;
     
     SerialComm* serialComm = (SerialComm*)instance;
@@ -29,7 +29,7 @@ uint32_t SerialCommSend(void* instance, uint8_t* data, uint32_t len) {
     return SerialSendUseOtherBuf(serialComm->serial, data, len);
 }
 
-uint32_t SerialCommRecv(void* instance, uint8_t* data, uint32_t len) {
+uint32_t SerialCommRecv(void* instance, char* data, uint32_t len) {
     if (instance == NULL || data == NULL || len == 0) return 0;
     
     SerialComm* serialComm = (SerialComm*)instance;

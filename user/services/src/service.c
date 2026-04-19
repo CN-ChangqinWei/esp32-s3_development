@@ -18,7 +18,7 @@ void DeleteService(Service* service) {
             DeleteRouter(service->router);
         }
         if (service->proto != NULL) {
-            DeleteSerialProto(service->proto);
+            DeleteProto(service->proto);
         }
         vPortFree(service);
     }
@@ -31,7 +31,7 @@ void ServiceExec(Service* service) {
 
 void ServiceComm(Service* service, char* buf, int len) {
     if (service == NULL || service->proto == NULL) return;
-    SerialProtoSendPackage(service->proto, (uint8_t*)buf, len);
+    SerialProtoSendPackage(service->proto, (char*)buf, len);
 }
 
 uint16_t ServiceErrHandler(void* instance, void* arg) {
@@ -39,6 +39,28 @@ uint16_t ServiceErrHandler(void* instance, void* arg) {
     if (service == NULL || service->proto == NULL) return 1;
     char msg[60] = {0};
     sprintf(msg, "errhandler:%s", (char*)arg);
-    SerialProtoSendPackage(service->proto, (uint8_t*)msg, strlen(msg));
+    SerialProtoSendPackage(service->proto, (char*)msg, strlen(msg));
     return 0;
+}
+
+static void ServiceCommHanlder(void* p) {
+    Service* srv = (Service*)p;
+    while (1) {
+        if (srv->proto == NULL) {
+            vTaskDelay(pdMS_TO_TICKS(100));
+            continue;
+        }
+        int len = 0;
+        void* buf = SerialProtoRecvPackage(srv->proto, &len);
+
+        if (buf != NULL) {
+            RouterAnlyPackage(srv->router, buf, len);
+        }
+        vTaskDelay(pdMS_TO_TICKS(10));  // 10ms 延时，避免CPU占用过高
+    }
+}
+
+void ServiceStart(Service* service){
+    xTaskCreate(ServiceCommHanlder, "service_comm_handler", 2048,
+                service, 4, &service->handler);
 }

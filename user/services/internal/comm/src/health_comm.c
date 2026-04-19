@@ -8,7 +8,7 @@ uint16_t HealthCommHandler(void* instance, void* arg) {
     int len;
     char* res = HealthExec(&len);
     if (service != NULL && service->proto != NULL) {
-        SerialProtoSendPackage(service->proto, (uint8_t*)res, len);
+        SerialProtoSendPackage(service->proto, (char*)res, len);
     }
     return 0;
 }
