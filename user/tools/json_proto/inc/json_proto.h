@@ -6,7 +6,7 @@
 
 // 序列化接口
 typedef char* (*JsonSerialize)(void* p);
-typedef char* (*JsonReserialize)(char* p);
+typedef void* (*JsonReserialize)(char* p);
 
 typedef struct {
     JsonSerialize serialize;

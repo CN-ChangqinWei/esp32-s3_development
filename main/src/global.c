@@ -11,7 +11,9 @@
 #include "health_comm.h"
 #include "motor_comm.h"
 #include "service.h"
-
+#include "protocol.h"
+#include "motor_serialize.h"
+#include "json_proto.h"
 static const char* TAG = "GLOBAL";
 
 // ==================== GPIO 引脚映射配置 ====================
@@ -62,6 +64,9 @@ SerialComm* serialComm = NULL;
 
 // Service 全局实例定义
 Service* g_service = NULL;
+
+SerializeInterface serializeArray[NUM_OF_PROTO]={0};
+
 
 // ==================== GPIO 初始化 ====================
 
@@ -167,7 +172,11 @@ static void InitSerials(void) {
 
 static void ServiceInit(Service* service) {
     if (service == NULL) return;
-
+    SerializeInterface motorSerializeInterface={
+        MotorDomainSerialize,
+        MotorDomainReserialize
+    };
+    serializeArray[PROTO_MOTOR]=motorSerializeInterface;
     // 创建 Communication 层
     Communication* comm = NewCommunicationFromSerial(serialComm);
     if (comm == NULL) {
@@ -176,15 +185,20 @@ static void ServiceInit(Service* service) {
     }
 
     // 创建 Protocol 层（包装 Communication）
-    service->proto = NewProto(NewSerialProto(comm),SerialProtoInterface());
+    service->proto = NewJsonProto(comm, serializeArray, NUM_OF_PROTO);
     if (service->proto == NULL) {
-        ESP_LOGE(TAG, "Failed to create serial proto");
+        ESP_LOGE(TAG, "Failed to create json proto");
         DeleteCommunication(comm);
         return;
     }
 
     // 发送 hello
-    ProtoSendPackage(service->proto, (char*)"hello", strlen("hello"));
+    MotorDomain data={
+        .protocol=PROTO_MOTOR,
+        .numAngel=100,
+        .denAngel=180
+    };
+    ProtoSendPackage(service->proto, (char*)&data, sizeof(MotorDomain));
 
     service->router = NewRouter();
     if (service->router != NULL) {
