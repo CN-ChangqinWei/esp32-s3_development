@@ -1,9 +1,12 @@
 #include "motor_serialize.h"
 #include <stdlib.h>
-
-MotorDomain MotorDomainReserialize(char* jsonStr) {
-    MotorDomain domain = {0};
-    
+#include"freertos/FreeRTOS.h"
+#include"string.h"
+static void* (*domainMalloc)(size_t size) = pvPortMalloc;
+static void  (*domainFree)(void* p) =vPortFree;
+void* MotorDomainReserialize(char* jsonStr) {
+    MotorDomain* domain = pvPortMalloc(sizeof(MotorDomain));
+    memset(domain,0,sizeof(MotorDomain));
     if (jsonStr == NULL) {
         return domain;
     }
@@ -15,67 +18,67 @@ MotorDomain MotorDomainReserialize(char* jsonStr) {
     
     cJSON* item = cJSON_GetObjectItem(root, "protocol");
     if (cJSON_IsNumber(item)) {
-        domain.protocol = (int)cJSON_GetNumberValue(item);
+        domain->protocol = (int)cJSON_GetNumberValue(item);
     }
     
     item = cJSON_GetObjectItem(root, "id");
     if (cJSON_IsNumber(item)) {
-        domain.id = (int)cJSON_GetNumberValue(item);
+        domain->id = (int)cJSON_GetNumberValue(item);
     }
     
     item = cJSON_GetObjectItem(root, "powerOn");
     if (cJSON_IsNumber(item)) {
-        domain.powerOn = (int)cJSON_GetNumberValue(item);
+        domain->powerOn = (int)cJSON_GetNumberValue(item);
     }
     
     item = cJSON_GetObjectItem(root, "numAngel");
     if (cJSON_IsNumber(item)) {
-        domain.numAngel = (uint32_t)cJSON_GetNumberValue(item);
+        domain->numAngel = (uint32_t)cJSON_GetNumberValue(item);
     }
     
     item = cJSON_GetObjectItem(root, "denAngel");
     if (cJSON_IsNumber(item)) {
-        domain.denAngel = (uint32_t)cJSON_GetNumberValue(item);
+        domain->denAngel = (uint32_t)cJSON_GetNumberValue(item);
     }
     
     item = cJSON_GetObjectItem(root, "maxAngel");
     if (cJSON_IsNumber(item)) {
-        domain.maxAngel = (uint32_t)cJSON_GetNumberValue(item);
+        domain->maxAngel = (uint32_t)cJSON_GetNumberValue(item);
     }
     
     item = cJSON_GetObjectItem(root, "encode");
     if (cJSON_IsNumber(item)) {
-        domain.encode = (int)cJSON_GetNumberValue(item);
+        domain->encode = (int)cJSON_GetNumberValue(item);
     }
     
     item = cJSON_GetObjectItem(root, "spEncode");
     if (cJSON_IsNumber(item)) {
-        domain.spEncode = (int)cJSON_GetNumberValue(item);
+        domain->spEncode = (int)cJSON_GetNumberValue(item);
     }
     
     item = cJSON_GetObjectItem(root, "pwmNum");
     if (cJSON_IsNumber(item)) {
-        domain.pwmNum = (int)cJSON_GetNumberValue(item);
+        domain->pwmNum = (int)cJSON_GetNumberValue(item);
     }
     
     item = cJSON_GetObjectItem(root, "pwmDen");
     if (cJSON_IsNumber(item)) {
-        domain.pwmDen = (int)cJSON_GetNumberValue(item);
+        domain->pwmDen = (int)cJSON_GetNumberValue(item);
     }
     
     item = cJSON_GetObjectItem(root, "spNumAngel");
     if (cJSON_IsNumber(item)) {
-        domain.spNumAngel = (int)cJSON_GetNumberValue(item);
+        domain->spNumAngel = (int)cJSON_GetNumberValue(item);
     }
     
     item = cJSON_GetObjectItem(root, "spDenAngel");
     if (cJSON_IsNumber(item)) {
-        domain.spDenAngel = (int)cJSON_GetNumberValue(item);
+        domain->spDenAngel = (int)cJSON_GetNumberValue(item);
     }
     
     item = cJSON_GetObjectItem(root, "mode");
     if (cJSON_IsNumber(item)) {
-        domain.mode = (MotorMode)(int)cJSON_GetNumberValue(item);
+        domain->mode = (MotorMode)(int)cJSON_GetNumberValue(item);
     }
     
     cJSON_Delete(root);
