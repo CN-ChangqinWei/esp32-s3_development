@@ -196,7 +196,7 @@ static void ServiceInit(Service* service) {
         RouterSetErrHandler(service->router, errHandler);
         RouterStart(service->router);
     }
-    
+    ServiceStart(service);
 }
 
 // ==================== 全局初始化入口 ====================

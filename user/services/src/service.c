@@ -31,7 +31,7 @@ void ServiceExec(Service* service) {
 
 void ServiceComm(Service* service, char* buf, int len) {
     if (service == NULL || service->proto == NULL) return;
-    SerialProtoSendPackage(service->proto, (char*)buf, len);
+    ProtoSendPackage(service->proto, buf, len);
 }
 
 uint16_t ServiceErrHandler(void* instance, void* arg) {
@@ -39,7 +39,7 @@ uint16_t ServiceErrHandler(void* instance, void* arg) {
     if (service == NULL || service->proto == NULL) return 1;
     char msg[60] = {0};
     sprintf(msg, "errhandler:%s", (char*)arg);
-    SerialProtoSendPackage(service->proto, (char*)msg, strlen(msg));
+    ProtoSendPackage(service->proto, msg, strlen(msg));
     return 0;
 }
 
@@ -51,7 +51,7 @@ static void ServiceCommHanlder(void* p) {
             continue;
         }
         int len = 0;
-        void* buf = SerialProtoRecvPackage(srv->proto, &len);
+        void* buf = ProtoRecvPackage(srv->proto, &len);
 
         if (buf != NULL) {
             RouterAnlyPackage(srv->router, buf, len);
