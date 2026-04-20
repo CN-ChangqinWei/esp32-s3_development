@@ -14,10 +14,10 @@ typedef struct {
 } SerialComm;
 
 // 创建 SerialComm 对象
-SerialComm* NewSerialComm(Serial* serial);
+Communication* NewSerialComm(Serial* serial);
 
 // 销毁 SerialComm 对象
-void DeleteSerialComm(SerialComm* serialComm);
+void DeleteSerialComm(void* serialComm);
 
 // 适配 Communication 接口的发送函数
 uint32_t SerialCommSend(void* instance, char* data, uint32_t len);

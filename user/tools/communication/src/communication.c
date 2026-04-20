@@ -1,8 +1,12 @@
 #include "communication.h"
 #include <string.h>
 
+void* (*CommMalloc)(size_t size) = pvPortMalloc;
+void  (*CommFree)(void* p) = vPortFree;
+
+
 Communication* NewCommunication(void* instance, CommInterface interface) {
-    Communication* comm = (Communication*)pvPortMalloc(sizeof(Communication));
+    Communication* comm = (Communication*)CommMalloc(sizeof(Communication));
     if (comm == NULL) return NULL;
     comm->instance = instance;
     comm->interface = interface;
@@ -11,7 +15,8 @@ Communication* NewCommunication(void* instance, CommInterface interface) {
 
 void DeleteCommunication(Communication* comm) {
     if (comm != NULL) {
-        vPortFree(comm);
+        comm->interface.deleteInstance(comm->instance);
+        CommFree(comm);
     }
 }
 

@@ -2,20 +2,21 @@
 #include "serial.h"
 
 
-SerialComm* NewSerialComm(Serial* serial) {
-    SerialComm* serialComm=(SerialComm*)pvPortMalloc(sizeof(SerialComm));
+Communication* NewSerialComm(Serial* serial) {
+    SerialComm* serialComm=(SerialComm*)CommMalloc(sizeof(SerialComm));
     if(serialComm == NULL) return NULL;
     serialComm->serial = serial;
     serialComm->tempRecvBuf = NULL;
     serialComm->tempRecvLen = 0;
     serialComm->tempRecvCur = 0;
     //SerialStartRecvIT(serial);
-    return serialComm;
+    return NewCommunication(serialComm,GetSerialCommInterface());
 }
 
-void DeleteSerialComm(SerialComm* serialComm) {
+void DeleteSerialComm(void* serialComm) {
     if (serialComm != NULL) {
-        vPortFree(serialComm);
+        SerialComm* p=serialComm;
+        CommFree(p);
     }
 }
 
@@ -46,6 +47,7 @@ CommInterface GetSerialCommInterface(void) {
     CommInterface interface;
     interface.send = SerialCommSend;
     interface.recv = SerialCommRecv;
+    interface.deleteInstance = DeleteSerialComm;
     return interface;
 }
 

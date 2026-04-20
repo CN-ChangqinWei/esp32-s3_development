@@ -60,7 +60,7 @@ Serial* serial1 = NULL;
 char sendBuf1[_SERIAL_BUF_SIZE] = {0};
 
 // SerialComm 全局实例定义
-SerialComm* serialComm = NULL;
+
 
 // Service 全局实例定义
 Service* g_service = NULL;
@@ -178,7 +178,7 @@ static void ServiceInit(Service* service) {
     };
     serializeArray[PROTO_MOTOR]=motorSerializeInterface;
     // 创建 Communication 层
-    Communication* comm = NewCommunicationFromSerial(serialComm);
+    Communication* comm = NewSerialComm(serial1);
     if (comm == NULL) {
         ESP_LOGE(TAG, "Failed to create communication");
         return;
@@ -225,10 +225,6 @@ void GlobalInit(void) {
     InitSerials();
 
     // 3. 创建 SerialComm
-    if (serial1 != NULL) {
-        serialComm = NewSerialComm(serial1);
-    }
-
     // 4. 创建并初始化 Service
     g_service = NewService();
     if (g_service != NULL) {

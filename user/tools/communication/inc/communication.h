@@ -3,11 +3,13 @@
 
 #include "freertos/FreeRTOS.h"
 #include <stdint.h>
-
+extern void* (*CommMalloc)(size_t size);
+extern void  (*CommFree)(void* p);
 // 通信接口抽象 - 只保留基础 send/recv
 typedef struct {
     uint32_t (*send)(void* instance, char* buf, uint32_t len);
     uint32_t (*recv)(void* instance, char* buf, uint32_t len);
+    void     (*deleteInstance)(void* instance);
 } CommInterface;
 
 // Communication 实例 - 简化，只保留实例和接口
@@ -23,5 +25,5 @@ void DeleteCommunication(Communication* comm);
 // 基础操作 - 直接透传到底层
 uint32_t CommSend(Communication* comm, char* buf, uint32_t len);
 uint32_t CommRecv(Communication* comm, char* buf, uint32_t len);
-
+void     CommDelete(Communication* comm);
 #endif
