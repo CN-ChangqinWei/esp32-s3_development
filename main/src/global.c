@@ -14,8 +14,10 @@
 #include "protocol.h"
 #include "motor_serialize.h"
 #include "json_proto.h"
+#include "my_wifi.h"
 static const char* TAG = "GLOBAL";
-
+#define WIFI_SSD    "荣耀畅玩40"
+#define WIFI_PSWD   "123456789"
 // ==================== GPIO 引脚映射配置 ====================
 // 根据实际硬件修改以下引脚定义
 
@@ -114,7 +116,15 @@ SerializeInterface serializeArray[NUM_OF_PROTO]={0};
 //     ESP_LOGI(TAG, "GPIO initialization completed");
 // }
 
+static void GlobalWifiInit(){
+    int err=WifiInit(WIFI_SSD,WIFI_PSWD);
+    if(err){
+        ESP_LOGI(TAG, "Wifi start fail,errcode :",err);
+    }
+}
+
 // 设置 UART 引脚
+
 static void UartSetPins(uart_port_t uart_num, const UartPinMap* pin_map) {
     if (pin_map->tx_pin != GPIO_NUM_NC || pin_map->rx_pin != GPIO_NUM_NC) {
         esp_err_t err = uart_set_pin(uart_num, 
@@ -223,7 +233,7 @@ void GlobalInit(void) {
 
     // 2. 初始化串口
     InitSerials();
-
+    GlobalWifiInit();
     // 3. 创建 SerialComm
     // 4. 创建并初始化 Service
     g_service = NewService();
