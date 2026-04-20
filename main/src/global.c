@@ -5,6 +5,7 @@
 #include "driver/uart.h"
 #include "driver/gpio.h"
 #include "esp_log.h"
+#include "nvs_flash.h"
 #include "communication.h"
 #include "serial_proto.h"
 #include "router.h"
@@ -17,7 +18,7 @@
 #include "my_wifi.h"
 static const char* TAG = "GLOBAL";
 #define WIFI_SSD    "荣耀畅玩40"
-#define WIFI_PSWD   "123456789"
+#define WIFI_PSWD   "12345678"
 // ==================== GPIO 引脚映射配置 ====================
 // 根据实际硬件修改以下引脚定义
 
@@ -117,10 +118,9 @@ SerializeInterface serializeArray[NUM_OF_PROTO]={0};
 // }
 
 static void GlobalWifiInit(){
+    
     int err=WifiInit(WIFI_SSD,WIFI_PSWD);
-    if(err){
-        ESP_LOGI(TAG, "Wifi start fail,errcode :",err);
-    }
+
 }
 
 // 设置 UART 引脚
@@ -227,6 +227,16 @@ static void ServiceInit(Service* service) {
 
 void GlobalInit(void) {
     ESP_LOGI(TAG, "Starting global initialization...");
+
+    // 0. 初始化 NVS（WiFi 需要）
+    esp_err_t ret = nvs_flash_init();
+    if (ret == ESP_ERR_NVS_NO_FREE_PAGES || ret == ESP_ERR_NVS_NEW_VERSION_FOUND) {
+        nvs_flash_erase();
+        ret = nvs_flash_init();
+    }
+    if (ret != ESP_OK) {
+        ESP_LOGE(TAG, "NVS init failed");
+    }
 
     // 1. 初始化 GPIO 引脚
     //GpioInit();
