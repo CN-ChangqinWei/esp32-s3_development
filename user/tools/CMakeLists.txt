@@ -14,5 +14,5 @@ list(REMOVE_DUPLICATES inc_dirs)
 idf_component_register(
     SRCS ${src}
     INCLUDE_DIRS ${inc_dirs}
-    REQUIRES esp_driver_uart freertos mqtt
+    REQUIRES esp_driver_uart freertos mqtt esp_wifi
 )
