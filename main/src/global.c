@@ -16,9 +16,11 @@
 #include "motor_serialize.h"
 #include "json_proto.h"
 #include "my_wifi.h"
+#include "mqtt_comm.h"
 static const char* TAG = "GLOBAL";
 #define WIFI_SSD    "荣耀畅玩40"
 #define WIFI_PSWD   "12345678"
+#define MQTT_URL    "mqtt://120.53.247.129:9091"
 // ==================== GPIO 引脚映射配置 ====================
 // 根据实际硬件修改以下引脚定义
 
@@ -69,7 +71,7 @@ char sendBuf1[_SERIAL_BUF_SIZE] = {0};
 Service* g_service = NULL;
 
 SerializeInterface serializeArray[NUM_OF_PROTO]={0};
-
+Communication * mqttComm = NULL;
 
 // ==================== GPIO 初始化 ====================
 
@@ -120,6 +122,22 @@ SerializeInterface serializeArray[NUM_OF_PROTO]={0};
 static void GlobalWifiInit(){
     
     int err=WifiInit(WIFI_SSD,WIFI_PSWD);
+
+}
+
+static void MqttInit(){
+    MqttConfig config={
+        .username="dev0",
+        .pub_topic="dev0_pub",
+        .sub_topic="dev0",
+        .uri=MQTT_URL,
+        .client_id="dev0",
+        
+    };
+    mqttComm = NewMqttComm(&config);
+    if(mqttComm==NULL){
+        ESP_LOGE(TAG,"Fail to new mqttcomm");
+    }
 
 }
 
@@ -195,7 +213,7 @@ static void ServiceInit(Service* service) {
     }
 
     // 创建 Protocol 层（包装 Communication）
-    service->proto = NewJsonProto(comm, serializeArray, NUM_OF_PROTO);
+    service->proto = NewJsonProto(mqttComm, serializeArray, NUM_OF_PROTO);
     if (service->proto == NULL) {
         ESP_LOGE(TAG, "Failed to create json proto");
         DeleteCommunication(comm);
@@ -244,6 +262,7 @@ void GlobalInit(void) {
     // 2. 初始化串口
     InitSerials();
     GlobalWifiInit();
+    MqttInit();
     // 3. 创建 SerialComm
     // 4. 创建并初始化 Service
     g_service = NewService();

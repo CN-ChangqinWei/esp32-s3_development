@@ -1,6 +1,7 @@
 #include "my_wifi.h"
 #include "esp_wifi.h"
 #include "esp_event.h"
+#include "esp_netif.h"
 #include "esp_log.h"
 #include <string.h>
 
@@ -29,11 +30,22 @@ static int wifi_init_internal(void)
     static int initialized = 0;
     if (initialized) return 0;
 
-    esp_err_t ret = esp_event_loop_create_default();
+    // 初始化 TCP/IP 网络接口层
+    esp_err_t ret = esp_netif_init();
+    if (ret != ESP_OK && ret != ESP_ERR_INVALID_STATE) {
+        ESP_LOGE(TAG, "Failed to init netif");
+        return -1;
+    }
+
+    // 创建默认事件循环
+    ret = esp_event_loop_create_default();
     if (ret != ESP_OK && ret != ESP_ERR_INVALID_STATE) {
         ESP_LOGE(TAG, "Failed to create event loop");
         return -1;
     }
+
+    // 创建默认 WiFi station 接口
+    esp_netif_create_default_wifi_sta();
 
     wifi_init_config_t cfg = WIFI_INIT_CONFIG_DEFAULT();
     ret = esp_wifi_init(&cfg);

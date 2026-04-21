@@ -9,6 +9,21 @@ static void MqttEventHandler(void* handler_args, esp_event_base_t base, int32_t 
 static int AddRecvData(MqttComm* mqttComm, const char* data, uint32_t len);
 static void FreeRecvNode(MqttRecvNode* node);
 
+// 自动修正 URI 格式，确保有 mqtt:// 前缀
+static void fix_mqtt_uri(const char* input, char* output, size_t output_size) {
+    if (input == NULL || output == NULL || output_size == 0) return;
+    
+    // 检查是否已有协议前缀
+    if (strncmp(input, "mqtt://", 7) == 0 || strncmp(input, "mqtts://", 8) == 0 ||
+        strncmp(input, "ws://", 5) == 0 || strncmp(input, "wss://", 6) == 0) {
+        strncpy(output, input, output_size - 1);
+        output[output_size - 1] = '\0';
+    } else {
+        // 自动添加 mqtt:// 前缀
+        snprintf(output, output_size, "mqtt://%s", input);
+    }
+}
+
 // 创建 MqttComm 对象
 Communication* NewMqttComm(MqttConfig* config) {
     if (config == NULL) {
@@ -25,6 +40,12 @@ Communication* NewMqttComm(MqttConfig* config) {
 
     // 复制配置
     memcpy(&mqttComm->config, config, sizeof(MqttConfig));
+    
+    // 修正 URI 格式
+    char fixed_uri[128];
+    fix_mqtt_uri(mqttComm->config.uri, fixed_uri, sizeof(fixed_uri));
+    strncpy(mqttComm->config.uri, fixed_uri, sizeof(mqttComm->config.uri) - 1);
+    mqttComm->config.uri[sizeof(mqttComm->config.uri) - 1] = '\0';
     
     // 创建互斥锁
     mqttComm->recvMutex = xSemaphoreCreateMutex();
