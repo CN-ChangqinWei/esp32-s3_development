@@ -138,7 +138,7 @@ static void MqttInit(){
     if(mqttComm==NULL){
         ESP_LOGE(TAG,"Fail to new mqttcomm");
     }
-
+    while(!MqttCommIsConnected(mqttComm))  vTaskDelay(pdMS_TO_TICKS(10));
 }
 
 // 设置 UART 引脚

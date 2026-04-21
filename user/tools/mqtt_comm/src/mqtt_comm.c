@@ -230,10 +230,13 @@ Communication* NewCommunicationFromMqttComm(MqttComm* instance) {
     return NewCommunication(instance, GetMqttCommInterface());
 }
 
-// 检查连接状态
+// 检查连接状态（接受 Communication* 参数）
 int MqttCommIsConnected(void* instance) {
     if (instance == NULL) return 0;
-    MqttComm* mqttComm = (MqttComm*)instance;
+    // instance 实际上是 Communication*，需要解包获取 MqttComm*
+    Communication* comm = (Communication*)instance;
+    if (comm->instance == NULL) return 0;
+    MqttComm* mqttComm = (MqttComm*)comm->instance;
     return mqttComm->connected;
 }
 
