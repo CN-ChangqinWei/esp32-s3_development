@@ -54,7 +54,7 @@ extern Serial* serial1;
 extern char sendBuf1[255];
 
 // SerialComm 全局实例
-extern SerialComm* serialComm;
+extern Communication* serialComm;
 
 // Service 全局实例
 extern Service* g_service;

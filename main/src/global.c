@@ -7,6 +7,7 @@
 #include "esp_log.h"
 #include "nvs_flash.h"
 #include "communication.h"
+#include "proto.h"
 #include "serial_proto.h"
 #include "router.h"
 #include "health_comm.h"
@@ -68,10 +69,16 @@ char sendBuf1[_SERIAL_BUF_SIZE] = {0};
 
 
 // Service 全局实例定义
-Service* g_service = NULL;
+Service* g_uartService = NULL;      // UART服务
+Service* g_mqttService = NULL;      // MQTT服务
 
-SerializeInterface serializeArray[NUM_OF_PROTO]={0};
-Communication * mqttComm = NULL;
+// UART协议序列化接口
+SerializeInterface uartSerializeArray[NUM_OF_PROTO]={0};
+// MQTT协议序列化接口
+SerializeInterface mqttSerializeArray[NUM_OF_PROTO]={0};
+
+Communication* mqttComm = NULL;
+Communication* serialComm = NULL;
 
 // ==================== GPIO 初始化 ====================
 
@@ -192,42 +199,48 @@ static void InitSerials(void) {
     // 启动接收任务
     SerialStartRxTask(serial1, 5);
     ESP_LOGI(TAG, "Serial1 (UART2) initialized successfully");
+    
+    // 创建 SerialComm 通信层
+    serialComm = NewSerialComm(serial1);
+    if (serialComm == NULL) {
+        ESP_LOGE(TAG, "Failed to create SerialComm");
+    }
 }
 
-// ==================== Service 初始化 ====================
+// ==================== UART Service 初始化 ====================
 
-
-
-static void ServiceInit(Service* service) {
+static void UartServiceInit(Service* service) {
     if (service == NULL) return;
-    SerializeInterface motorSerializeInterface={
+    
+    ESP_LOGI(TAG, "Initializing UART service...");
+    
+    // 配置序列化接口（根据实际需求配置）
+    SerializeInterface motorSerializeInterface = {
         MotorDomainSerialize,
         MotorDomainReserialize
     };
-    serializeArray[PROTO_MOTOR]=motorSerializeInterface;
-    // 创建 Communication 层
-    Communication* comm = NewSerialComm(serial1);
-    if (comm == NULL) {
-        ESP_LOGE(TAG, "Failed to create communication");
+    uartSerializeArray[PROTO_MOTOR] = motorSerializeInterface;
+    
+    // 创建 SerialComm 层
+    if (serialComm == NULL) {
+        ESP_LOGE(TAG, "SerialComm not initialized");
         return;
     }
-
-    // 创建 Protocol 层（包装 Communication）
-    service->proto = NewJsonProto(mqttComm, serializeArray, NUM_OF_PROTO);
+    
+    // 创建 Protocol 层 - SerialProto（二进制协议）
+    SerialProto* serialProto = NewSerialProto(serialComm);
+    if (serialProto == NULL) {
+        ESP_LOGE(TAG, "Failed to create serial proto");
+        return;
+    }
+    service->proto = NewProto(serialProto, SerialProtoInterface());
     if (service->proto == NULL) {
-        ESP_LOGE(TAG, "Failed to create json proto");
-        DeleteCommunication(comm);
+        ESP_LOGE(TAG, "Failed to create proto wrapper");
+        DeleteSerialProto(serialProto);
         return;
     }
 
-    // 发送 hello
-    MotorDomain data={
-        .protocol=PROTO_MOTOR,
-        .numAngel=100,
-        .denAngel=180
-    };
-    ProtoSendPackage(service->proto, (char*)&data, sizeof(MotorDomain));
-
+    // 创建 Router
     service->router = NewRouter();
     if (service->router != NULL) {
         RouterHandlerPkg healthHandler = {HealthCommHandler, service};
@@ -238,7 +251,54 @@ static void ServiceInit(Service* service) {
         RouterSetErrHandler(service->router, errHandler);
         RouterStart(service->router);
     }
+    
     ServiceStart(service);
+    ESP_LOGI(TAG, "UART service started");
+}
+
+// ==================== MQTT Service 初始化 ====================
+
+static void MqttServiceInit(Service* service) {
+    if (service == NULL) return;
+    
+    ESP_LOGI(TAG, "Initializing MQTT service...");
+    
+    // 配置序列化接口
+    SerializeInterface motorSerializeInterface = {
+        MotorDomainSerialize,
+        MotorDomainReserialize
+    };
+    mqttSerializeArray[PROTO_MOTOR] = motorSerializeInterface;
+    
+    // 创建 Protocol 层 - JsonProto（JSON协议）
+    service->proto = NewJsonProto(mqttComm, mqttSerializeArray, NUM_OF_PROTO);
+    if (service->proto == NULL) {
+        ESP_LOGE(TAG, "Failed to create json proto");
+        return;
+    }
+
+    // 发送 hello 测试
+    MotorDomain data = {
+        .protocol = PROTO_MOTOR,
+        .numAngel = 100,
+        .denAngel = 180
+    };
+    ProtoSendPackage(service->proto, (char*)&data, sizeof(MotorDomain));
+
+    // 创建 Router
+    service->router = NewRouter();
+    if (service->router != NULL) {
+        RouterHandlerPkg healthHandler = {HealthCommHandler, service};
+        RouterRegister(service->router, Health, healthHandler);
+        RouterHandlerPkg motorHandler = {MotorHandler, service};
+        RouterRegister(service->router, PROTO_MOTOR, motorHandler);
+        RouterHandlerPkg errHandler = {ServiceErrHandler, service};
+        RouterSetErrHandler(service->router, errHandler);
+        RouterStart(service->router);
+    }
+    
+    ServiceStart(service);
+    ESP_LOGI(TAG, "MQTT service started");
 }
 
 // ==================== 全局初始化入口 ====================
@@ -261,13 +321,23 @@ void GlobalInit(void) {
 
     // 2. 初始化串口
     InitSerials();
+    
+    // 3. 初始化 WiFi
     GlobalWifiInit();
+    
+    // 4. 初始化 MQTT
     MqttInit();
-    // 3. 创建 SerialComm
-    // 4. 创建并初始化 Service
-    g_service = NewService();
-    if (g_service != NULL) {
-        ServiceInit(g_service);
+    
+    // 5. 创建并初始化 UART 服务（SerialProto + UART_NUM_2）
+    g_uartService = NewService();
+    if (g_uartService != NULL) {
+        UartServiceInit(g_uartService);
+    }
+    
+    // 6. 创建并初始化 MQTT 服务（JsonProto + mqtt_comm）
+    g_mqttService = NewService();
+    if (g_mqttService != NULL) {
+        MqttServiceInit(g_mqttService);
     }
 
     ESP_LOGI(TAG, "Global initialization completed");
