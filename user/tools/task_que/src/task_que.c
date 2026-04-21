@@ -45,26 +45,29 @@ static void TaskHandler(void* arg) {
         int hasTask = 0;
         
         // 从队列中获取任务（带锁保护）
-        if (xSemaphoreTake(que->mutex, pdMS_TO_TICKS(10)) == pdTRUE) {
+        if (xSemaphoreTake(que->mutex, pdMS_TO_TICKS(100)) == pdTRUE) {
             if (que->head != que->tail) {
                 pkg = que->ringBuf[que->head];
                 que->head = (que->head + 1) % que->len;
                 hasTask = 1;
             }
             xSemaphoreGive(que->mutex);
+            
+            if (hasTask && pkg.func != NULL) {
+                // 调用任务函数: func(instance, data)
+                pkg.func(pkg.instance, pkg.data);
+                // 执行完任务释放data内存
+                if (pkg.data != NULL) {
+                    queFree(pkg.data);
+                }
+                // 任务执行后让出CPU，避免长时间占用
+                taskYIELD();
+                continue;
+            }
         }
         
-        if (hasTask && pkg.func != NULL) {
-            // 调用任务函数: func(instance, data)
-            pkg.func(pkg.instance, pkg.data);
-            // 执行完任务释放data内存
-            if (pkg.data != NULL) {
-                queFree(pkg.data);
-            }
-        } else {
-            // 没有任务，短暂延时
-            vTaskDelay(pdMS_TO_TICKS(1));
-        }
+        // 没有任务或获取锁失败，延时等待
+        vTaskDelay(pdMS_TO_TICKS(10));
     }
     
     vTaskDelete(NULL);
