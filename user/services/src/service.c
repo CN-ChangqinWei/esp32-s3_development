@@ -25,8 +25,8 @@ void DeleteService(Service* service) {
 }
 
 void ServiceExec(Service* service) {
-    if (service == NULL || service->router == NULL) return;
-    RouterExec(service->router);
+    // if (service == NULL || service->router == NULL) return;
+    // RouterExec(service->router);
 }
 
 void ServiceComm(Service* service, char* buf, int len) {

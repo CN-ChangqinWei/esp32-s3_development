@@ -9,6 +9,7 @@
 #include "communication.h"
 #include "proto.h"
 #include "serial_proto.h"
+#include "task_que.h"
 #include "router.h"
 #include "health_comm.h"
 #include "motor_comm.h"
@@ -79,6 +80,10 @@ SerializeInterface mqttSerializeArray[NUM_OF_PROTO]={0};
 
 Communication* mqttComm = NULL;
 Communication* serialComm = NULL;
+
+// TaskQue 全局实例
+TaskQue* g_uartTaskQue = NULL;      // UART服务的任务队列
+TaskQue* g_mqttTaskQue = NULL;      // MQTT服务的任务队列
 
 // ==================== GPIO 初始化 ====================
 
@@ -240,8 +245,16 @@ static void UartServiceInit(Service* service) {
         return;
     }
 
-    // 创建 Router
-    service->router = NewRouter();
+    // 创建并启动 TaskQue
+    g_uartTaskQue = NewTaskQue(100);
+    if (g_uartTaskQue == NULL) {
+        ESP_LOGE(TAG, "Failed to create UART task queue");
+        return;
+    }
+    TaskQueStart(g_uartTaskQue, -1);
+    
+    // 创建 Router，注入 TaskQue
+    service->router = NewRouter(g_uartTaskQue);
     if (service->router != NULL) {
         RouterHandlerPkg healthHandler = {HealthCommHandler, service};
         RouterRegister(service->router, Health, healthHandler);
@@ -249,7 +262,6 @@ static void UartServiceInit(Service* service) {
         RouterRegister(service->router, PROTO_MOTOR, motorHandler);
         RouterHandlerPkg errHandler = {ServiceErrHandler, service};
         RouterSetErrHandler(service->router, errHandler);
-        RouterStart(service->router);
     }
     
     ServiceStart(service);
@@ -285,8 +297,16 @@ static void MqttServiceInit(Service* service) {
     };
     ProtoSendPackage(service->proto, (char*)&data, sizeof(MotorDomain));
 
-    // 创建 Router
-    service->router = NewRouter();
+    // 创建并启动 TaskQue
+    g_mqttTaskQue = NewTaskQue(100);
+    if (g_mqttTaskQue == NULL) {
+        ESP_LOGE(TAG, "Failed to create MQTT task queue");
+        return;
+    }
+    TaskQueStart(g_mqttTaskQue, -1);
+    
+    // 创建 Router，注入 TaskQue
+    service->router = NewRouter(g_mqttTaskQue);
     if (service->router != NULL) {
         RouterHandlerPkg healthHandler = {HealthCommHandler, service};
         RouterRegister(service->router, Health, healthHandler);
@@ -294,7 +314,6 @@ static void MqttServiceInit(Service* service) {
         RouterRegister(service->router, PROTO_MOTOR, motorHandler);
         RouterHandlerPkg errHandler = {ServiceErrHandler, service};
         RouterSetErrHandler(service->router, errHandler);
-        RouterStart(service->router);
     }
     
     ServiceStart(service);
