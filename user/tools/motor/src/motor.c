@@ -1,7 +1,7 @@
 #include "motor.h"
 #include "freertos/FreeRTOS.h"
-static void* (*motorMalloc)(size_t size) =pvPortMalloc;
-static void  (*motorFree)(void* p)=vPortFree;
+void* (*motorMalloc)(size_t size) =pvPortMalloc;
+void  (*motorFree)(void* p)=vPortFree;
 
 
 Motor* NewMotor(void*instance,MotorInterface interface){
