@@ -13,7 +13,7 @@ typedef struct {
     TaskHandle_t handler;
     Router* router;
     int isStart;
-    void *services;//存储服务实例的指针，通过protocol获取对应实例
+    void **services;//存储服务实例的指针，通过protocol获取对应实例
     int  srvLen;
 } Service;
 

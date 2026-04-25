@@ -73,7 +73,7 @@ void ServiceRegister(Service* service, Protocol protocol, void* instance, Router
     
     // 1. 将业务实例指针存入 services 数组（以 protocol 为索引）
     if (service->services != NULL && protocol < service->srvLen) {
-        ((void**)service->services)[protocol] = instance;
+        (service->services)[protocol] = instance;
     }
     
     // 2. 注册路由 handler（包含 service 自身指针和 handler 函数）
