@@ -22,7 +22,13 @@ Motor* NewMotorProto(Proto* proto, int id) {
     
     return NewMotor(motorProto, MotorProtoInterfaces());
 }
-
+void InitMotorProto(Motor* motor,Proto* proto,int id){
+    if (motor||proto == NULL||id<0) return;
+    motor->instance=NewMotorProto(proto,id);
+    motor->interface=MotorProtoInterfaces();
+    
+    
+}
 static int MotorProtoPowerOn(void* instance) {
     MotorProto* mp = (MotorProto*)instance;
     if (mp == NULL || mp->proto == NULL) return -1;

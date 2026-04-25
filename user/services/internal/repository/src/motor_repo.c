@@ -17,14 +17,14 @@ MotorRepo* NewMotorReop(Motor* motors,int len){
     return repo;
 }
 
-char isMotorExsits(void*repo,int id){
+int isMotorExsits(void*repo,int id){
     if(repo == NULL) return 0;
     MotorRepo* motorRepo = (MotorRepo*)repo;
     if(id < 0 || id >= motorRepo->len) return 0;
     return motorRepo->motors[id].instance != NULL;
 }
 
-char setPosition(void*repo,int id,uint32_t numAngel,uint32_t denAngel,uint32_t maxAngel){
+int setPosition(void*repo,int id,int numAngel,int denAngel,int maxAngel){
     if(repo == NULL) return 0;
     MotorRepo* motorRepo = (MotorRepo*)repo;
     if(id < 0 || id >= motorRepo->len) return 0;
@@ -33,7 +33,7 @@ char setPosition(void*repo,int id,uint32_t numAngel,uint32_t denAngel,uint32_t m
     return motor->interface.setPosition(motor->instance, numAngel, denAngel, maxAngel) == 0;
 }
 
-char setPositionByEncode(void* repo,int id,int encode){
+int setPositionByEncode(void* repo,int id,int encode){
     if(repo == NULL) return 0;
     MotorRepo* motorRepo = (MotorRepo*)repo;
     if(id < 0 || id >= motorRepo->len) return 0;
@@ -42,7 +42,7 @@ char setPositionByEncode(void* repo,int id,int encode){
     return motor->interface.setPositionByEncode(motor->instance, encode) == 0;
 }
 
-char setPwm(void*repo,int id,int pwmNum,int pwmDen){
+int setPwm(void*repo,int id,int pwmNum,int pwmDen){
     if(repo == NULL) return 0;
     MotorRepo* motorRepo = (MotorRepo*)repo;
     if(id < 0 || id >= motorRepo->len) return 0;
@@ -51,7 +51,7 @@ char setPwm(void*repo,int id,int pwmNum,int pwmDen){
     return motor->interface.setSpeedByPwm(motor->instance, pwmNum, pwmDen) == 0;
 }
 
-char setSpeedByAngel(void* repo,int id,int spNumAngel,int spDenAngel){
+int setSpeedByAngel(void* repo,int id,int spNumAngel,int spDenAngel){
     if(repo == NULL) return 0;
     MotorRepo* motorRepo = (MotorRepo*)repo;
     if(id < 0 || id >= motorRepo->len) return 0;
@@ -60,7 +60,7 @@ char setSpeedByAngel(void* repo,int id,int spNumAngel,int spDenAngel){
     return motor->interface.setSpeedByAngel(motor->instance, spNumAngel, spDenAngel) == 0;
 }
 
-char powerOn(void* repo,int id){
+int powerOn(void* repo,int id){
     if(repo == NULL) return 0;
     MotorRepo* motorRepo = (MotorRepo*)repo;
     if(id < 0 || id >= motorRepo->len) return 0;
@@ -69,7 +69,7 @@ char powerOn(void* repo,int id){
     return motor->interface.powerOn(motor->instance) == 0;
 }
 
-char shutOff(void* repo,int id){
+int shutOff(void* repo,int id){
     if(repo == NULL) return 0;
     MotorRepo* motorRepo = (MotorRepo*)repo;
     if(id < 0 || id >= motorRepo->len) return 0;

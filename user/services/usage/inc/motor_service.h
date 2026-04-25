@@ -6,13 +6,13 @@
 #include "motor_domain.h"
 #include "freertos/FreeRTOS.h"
 typedef struct {
-    char (*isMotorExsits)(void*repo,int id);
-    char (*setPosition)(void*repo,int id,uint32_t numAngel,uint32_t denAngel,uint32_t maxAngel); 
-    char (*setPositionByEncode)(void* repo,int id,int encode);
-    char (*setPwm)(void*repo,int id,int pwmNum,int pwmDen);
-    char (*setSpeedByAngel)(void* repo,int id,int spNumAngel,int spDenAngel);
-    char (*powerOn)(void* repo,int id);
-    char (*shutOff)(void* repo,int id);
+    int (*isMotorExsits)(void*repo,int id);
+    int (*setPosition)(void*repo,int id,int numAngel,int denAngel,int maxAngel); 
+    int (*setPositionByEncode)(void* repo,int id,int encode);
+    int (*setPwm)(void*repo,int id,int pwmNum,int pwmDen);
+    int (*setSpeedByAngel)(void* repo,int id,int spNumAngel,int spDenAngel);
+    int (*powerOn)(void* repo,int id);
+    int (*shutOff)(void* repo,int id);
 }MotorRepoInterface;
 
 typedef struct{

@@ -20,8 +20,14 @@
 #include "my_wifi.h"
 #include "mqtt_comm.h"
 #include "motor_proto.h"
-#include "motor"
+#include "motor_service.h"
+#include "motor_repo.h"
 static const char* TAG = "GLOBAL";
+
+// ==================== MotorService 全局定义 ====================
+MotorService* g_motorService = NULL;    // 电机业务服务
+Motor  g_motors[2] = {0};      // 2个电机实例数组（通过MotorProto与UART通信）
+MotorRepo* g_motorRepo = NULL;          // 电机仓库
 #define WIFI_SSD    "荣耀畅玩40"
 #define WIFI_PSWD   "12345678"
 #define MQTT_URL    "mqtt://120.53.247.129:9091"
@@ -231,6 +237,47 @@ static int ProtoLayerInit(void) {
     return 0;
 }
 
+// ==================== Motor 层初始化 ====================
+
+static int MotorLayerInit(void) {
+    ESP_LOGI(TAG, "=== Motor Layer Init ===");
+    
+    if (g_uartProto == NULL) {
+        ESP_LOGE(TAG, "UART Proto not ready");
+        return -1;
+    }
+    
+    // 创建2个Motor实例（通过MotorProto使用UART通信）
+    g_motors[0].instance = NewMotorProto(g_uartProto, 0);  // 电机0
+    g_motors[1].instance = NewMotorProto(g_uartProto, 1);  // 电机1
+    g_motors[0].interface=MotorProtoInterfaces();
+    g_motors[1].interface=MotorProtoInterfaces();
+    if (g_motors[0].instance == NULL || g_motors[1].instance == NULL) {
+        ESP_LOGE(TAG, "Motor creation failed");
+        return -1;
+    }
+    ESP_LOGI(TAG, "Motors created (2 instances)");
+    
+    // 创建MotorRepo
+    g_motorRepo = NewMotorReop(g_motors, 2);
+    if (g_motorRepo == NULL) {
+        ESP_LOGE(TAG, "MotorRepo creation failed");
+        return -1;
+    }
+    ESP_LOGI(TAG, "MotorRepo OK");
+    
+    // 创建MotorService
+    g_motorService = NewMotorService(g_motorRepo, g_motorRepo->interface);
+    if (g_motorService == NULL) {
+        ESP_LOGE(TAG, "MotorService creation failed");
+        return -1;
+    }
+    ESP_LOGI(TAG, "MotorService OK");
+    
+    ESP_LOGI(TAG, "=== Motor Layer Init Done ===");
+    return 0;
+}
+
 // ==================== Layer 3: Service层初始化 ====================
 
 static int ServiceLayerInit(void) {
@@ -247,18 +294,19 @@ static int ServiceLayerInit(void) {
     TaskQueStart(g_mqttTaskQue, -1);
     ESP_LOGI(TAG, "TaskQue OK");
     
-    // 3.2 创建和初始化UART服务
-    g_uartService = NewService();
+    // 3.2 创建和初始化UART服务（使用新的创建方法和注册方法）
+    g_uartService = NewService(NUM_OF_PROTO);  // 新创建方法：传入协议数量
     if (g_uartService != NULL && g_uartProto != NULL) {
         g_uartService->proto = g_uartProto;
         
         // 创建Router并注入TaskQue
         g_uartService->router = NewRouter(g_uartTaskQue);
         if (g_uartService->router != NULL) {
-            RouterHandlerPkg healthHandler = {HealthCommHandler, g_uartService};
-            RouterRegister(g_uartService->router, Health, healthHandler);
-            RouterHandlerPkg motorHandler = {MotorHandler, g_uartService};
-            RouterRegister(g_uartService->router, PROTO_MOTOR, motorHandler);
+            // 注册Health服务
+            ServiceRegister(g_uartService, Health, NULL, HealthCommHandler);
+            // 注册Motor服务（使用MotorService作为实例）
+            ServiceRegister(g_uartService, PROTO_MOTOR, g_motorService, MotorHandler);
+            // 设置错误处理
             RouterHandlerPkg errHandler = {ServiceErrHandler, g_uartService};
             RouterSetErrHandler(g_uartService->router, errHandler);
         }
@@ -270,7 +318,7 @@ static int ServiceLayerInit(void) {
     }
     
     // 3.3 创建和初始化MQTT服务
-    g_mqttService = NewService();
+    g_mqttService = NewService(NUM_OF_PROTO);  // 新创建方法
     if (g_mqttService != NULL && g_mqttProto != NULL) {
         g_mqttService->proto = g_mqttProto;
         
@@ -285,10 +333,11 @@ static int ServiceLayerInit(void) {
         // 创建Router并注入TaskQue
         g_mqttService->router = NewRouter(g_mqttTaskQue);
         if (g_mqttService->router != NULL) {
-            RouterHandlerPkg healthHandler = {HealthCommHandler, g_mqttService};
-            RouterRegister(g_mqttService->router, Health, healthHandler);
-            RouterHandlerPkg motorHandler = {MotorHandler, g_mqttService};
-            RouterRegister(g_mqttService->router, PROTO_MOTOR, motorHandler);
+            // 注册Health服务
+            ServiceRegister(g_mqttService, Health, NULL, HealthCommHandler);
+            // 注册Motor服务
+            ServiceRegister(g_mqttService, PROTO_MOTOR, g_motorService, MotorHandler);
+            // 设置错误处理
             RouterHandlerPkg errHandler = {ServiceErrHandler, g_mqttService};
             RouterSetErrHandler(g_mqttService->router, errHandler);
         }
@@ -497,6 +546,11 @@ void GlobalInit(void) {
     
     if (ProtoLayerInit() != 0) {
         ESP_LOGE(TAG, "Proto layer init failed");
+        return;
+    }
+    
+    if (MotorLayerInit() != 0) {
+        ESP_LOGE(TAG, "Motor layer init failed");
         return;
     }
     
