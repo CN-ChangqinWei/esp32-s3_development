@@ -4,11 +4,14 @@
 #include "serial.h"
 #include "freertos/FreeRTOS.h"
 #include "string.h"
-Service* NewService() {
+Service* NewService(int srvLen) {
     Service* service = pvPortMalloc(sizeof(Service));
     if (service != NULL) {
         memset(service, 0, sizeof(Service));
     }
+    service->srvLen=srvLen;
+    service->services=pvPortMalloc(sizeof(void*)*srvLen);
+    memset(service->services,0,srvLen*sizeof(void*));
     return service;
 }
 
@@ -63,4 +66,22 @@ static void ServiceCommHanlder(void* p) {
 void ServiceStart(Service* service){
     xTaskCreate(ServiceCommHanlder, "service_comm_handler", 2048,
                 service, 4, &service->handler);
+}
+
+void ServiceRegister(Service* service, Protocol protocol, void* instance, RouterHandler handler){
+    if (service == NULL) return;
+    
+    // 1. 将业务实例指针存入 services 数组（以 protocol 为索引）
+    if (service->services != NULL && protocol < service->srvLen) {
+        ((void**)service->services)[protocol] = instance;
+    }
+    
+    // 2. 注册路由 handler（包含 service 自身指针和 handler 函数）
+    if (service->router != NULL) {
+        RouterHandlerPkg pkg = {
+            .handler = handler,
+            .instance = service  // service 自身作为 instance 传递给 handler
+        };
+        RouterRegister(service->router, protocol, pkg);
+    }
 }
