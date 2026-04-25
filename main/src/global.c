@@ -19,6 +19,8 @@
 #include "json_proto.h"
 #include "my_wifi.h"
 #include "mqtt_comm.h"
+#include "motor_proto.h"
+#include "motor"
 static const char* TAG = "GLOBAL";
 #define WIFI_SSD    "荣耀畅玩40"
 #define WIFI_PSWD   "12345678"
@@ -85,6 +87,18 @@ Communication* serialComm = NULL;
 TaskQue* g_uartTaskQue = NULL;      // UART服务的任务队列
 TaskQue* g_mqttTaskQue = NULL;      // MQTT服务的任务队列
 
+
+
+// ==================== 分层初始化声明 ====================
+
+// Comm层实例
+static Communication* g_uartComm = NULL;    // UART通信层
+static Communication* g_mqttComm = NULL;    // MQTT通信层
+
+// Proto层实例
+static Proto* g_uartProto = NULL;           // UART协议层
+static Proto* g_mqttProto = NULL;           // MQTT协议层
+
 // ==================== GPIO 初始化 ====================
 
 // void GpioInit(void) {
@@ -131,26 +145,162 @@ TaskQue* g_mqttTaskQue = NULL;      // MQTT服务的任务队列
 //     ESP_LOGI(TAG, "GPIO initialization completed");
 // }
 
-static void GlobalWifiInit(){
-    
-    int err=WifiInit(WIFI_SSD,WIFI_PSWD);
+// ==================== Layer 1: Comm层初始化 ====================
 
+static int CommLayerInit(void) {
+    ESP_LOGI(TAG, "=== Comm Layer Init ===");
+    
+    // 1.1 UART Comm初始化
+    if (serialComm != NULL) {
+        g_uartComm = serialComm;
+        ESP_LOGI(TAG, "UART Comm OK");
+    } else {
+        ESP_LOGE(TAG, "UART Comm failed");
+    }
+    
+    // 1.2 MQTT Comm初始化
+    MqttConfig config = {
+        .username = "dev0",
+        .pub_topic = "dev0_pub",
+        .sub_topic = "dev0",
+        .uri = MQTT_URL,
+        .client_id = "dev0",
+    };
+    g_mqttComm = NewMqttComm(&config);
+    if (g_mqttComm == NULL) {
+        ESP_LOGE(TAG, "MQTT Comm failed");
+        return -1;
+    }
+    ESP_LOGI(TAG, "MQTT Comm created, waiting connection...");
+    
+    // 等待MQTT连接
+    int timeout = 100;
+    while (!MqttCommIsConnected(g_mqttComm) && timeout-- > 0) {
+        vTaskDelay(pdMS_TO_TICKS(100));
+    }
+    if (timeout <= 0) {
+        ESP_LOGE(TAG, "MQTT connection timeout");
+        return -1;
+    }
+    ESP_LOGI(TAG, "MQTT Comm OK");
+    
+    ESP_LOGI(TAG, "=== Comm Layer Init Done ===");
+    return 0;
 }
 
-static void MqttInit(){
-    MqttConfig config={
-        .username="dev0",
-        .pub_topic="dev0_pub",
-        .sub_topic="dev0",
-        .uri=MQTT_URL,
-        .client_id="dev0",
-        
+// ==================== Layer 2: Proto层初始化 ====================
+
+static int ProtoLayerInit(void) {
+    ESP_LOGI(TAG, "=== Proto Layer Init ===");
+    
+    // 2.1 配置序列化接口
+    SerializeInterface motorSerializeInterface = {
+        MotorDomainSerialize,
+        MotorDomainReserialize
     };
-    mqttComm = NewMqttComm(&config);
-    if(mqttComm==NULL){
-        ESP_LOGE(TAG,"Fail to new mqttcomm");
+    uartSerializeArray[PROTO_MOTOR] = motorSerializeInterface;
+    mqttSerializeArray[PROTO_MOTOR] = motorSerializeInterface;
+    
+    // 2.2 UART Proto初始化 (SerialProto)
+    if (g_uartComm != NULL) {
+        SerialProto* serialProto = NewSerialProto(g_uartComm);
+        if (serialProto != NULL) {
+            g_uartProto = NewProto(serialProto, SerialProtoInterface());
+            if (g_uartProto == NULL) {
+                DeleteSerialProto(serialProto);
+                ESP_LOGE(TAG, "UART Proto wrapper failed");
+            } else {
+                ESP_LOGI(TAG, "UART Proto OK");
+            }
+        } else {
+            ESP_LOGE(TAG, "UART SerialProto failed");
+        }
     }
-    while(!MqttCommIsConnected(mqttComm))  vTaskDelay(pdMS_TO_TICKS(10));
+    
+    // 2.3 MQTT Proto初始化 (JsonProto)
+    if (g_mqttComm != NULL) {
+        g_mqttProto = NewJsonProto(g_mqttComm, mqttSerializeArray, NUM_OF_PROTO);
+        if (g_mqttProto == NULL) {
+            ESP_LOGE(TAG, "MQTT Proto failed");
+        } else {
+            ESP_LOGI(TAG, "MQTT Proto OK");
+        }
+    }
+    
+    ESP_LOGI(TAG, "=== Proto Layer Init Done ===");
+    return 0;
+}
+
+// ==================== Layer 3: Service层初始化 ====================
+
+static int ServiceLayerInit(void) {
+    ESP_LOGI(TAG, "=== Service Layer Init ===");
+    
+    // 3.1 创建任务队列
+    g_uartTaskQue = NewTaskQue(100);
+    g_mqttTaskQue = NewTaskQue(100);
+    if (g_uartTaskQue == NULL || g_mqttTaskQue == NULL) {
+        ESP_LOGE(TAG, "TaskQue creation failed");
+        return -1;
+    }
+    TaskQueStart(g_uartTaskQue, -1);
+    TaskQueStart(g_mqttTaskQue, -1);
+    ESP_LOGI(TAG, "TaskQue OK");
+    
+    // 3.2 创建和初始化UART服务
+    g_uartService = NewService();
+    if (g_uartService != NULL && g_uartProto != NULL) {
+        g_uartService->proto = g_uartProto;
+        
+        // 创建Router并注入TaskQue
+        g_uartService->router = NewRouter(g_uartTaskQue);
+        if (g_uartService->router != NULL) {
+            RouterHandlerPkg healthHandler = {HealthCommHandler, g_uartService};
+            RouterRegister(g_uartService->router, Health, healthHandler);
+            RouterHandlerPkg motorHandler = {MotorHandler, g_uartService};
+            RouterRegister(g_uartService->router, PROTO_MOTOR, motorHandler);
+            RouterHandlerPkg errHandler = {ServiceErrHandler, g_uartService};
+            RouterSetErrHandler(g_uartService->router, errHandler);
+        }
+        
+        ServiceStart(g_uartService);
+        ESP_LOGI(TAG, "UART Service OK");
+    } else {
+        ESP_LOGE(TAG, "UART Service init failed");
+    }
+    
+    // 3.3 创建和初始化MQTT服务
+    g_mqttService = NewService();
+    if (g_mqttService != NULL && g_mqttProto != NULL) {
+        g_mqttService->proto = g_mqttProto;
+        
+        // 发送hello测试
+        MotorDomain data = {
+            .protocol = PROTO_MOTOR,
+            .numAngel = 100,
+            .denAngel = 180
+        };
+        ProtoSendPackage(g_mqttService->proto, (char*)&data, sizeof(MotorDomain));
+        
+        // 创建Router并注入TaskQue
+        g_mqttService->router = NewRouter(g_mqttTaskQue);
+        if (g_mqttService->router != NULL) {
+            RouterHandlerPkg healthHandler = {HealthCommHandler, g_mqttService};
+            RouterRegister(g_mqttService->router, Health, healthHandler);
+            RouterHandlerPkg motorHandler = {MotorHandler, g_mqttService};
+            RouterRegister(g_mqttService->router, PROTO_MOTOR, motorHandler);
+            RouterHandlerPkg errHandler = {ServiceErrHandler, g_mqttService};
+            RouterSetErrHandler(g_mqttService->router, errHandler);
+        }
+        
+        ServiceStart(g_mqttService);
+        ESP_LOGI(TAG, "MQTT Service OK");
+    } else {
+        ESP_LOGE(TAG, "MQTT Service init failed");
+    }
+    
+    ESP_LOGI(TAG, "=== Service Layer Init Done ===");
+    return 0;
 }
 
 // 设置 UART 引脚
@@ -325,7 +475,7 @@ static void MqttServiceInit(Service* service) {
 void GlobalInit(void) {
     ESP_LOGI(TAG, "Starting global initialization...");
 
-    // 0. 初始化 NVS（WiFi 需要）
+    // 0. 基础初始化
     esp_err_t ret = nvs_flash_init();
     if (ret == ESP_ERR_NVS_NO_FREE_PAGES || ret == ESP_ERR_NVS_NEW_VERSION_FOUND) {
         nvs_flash_erase();
@@ -335,28 +485,24 @@ void GlobalInit(void) {
         ESP_LOGE(TAG, "NVS init failed");
     }
 
-    // 1. 初始化 GPIO 引脚
-    //GpioInit();
-
-    // 2. 初始化串口
+    // 1. 硬件层初始化（串口、WiFi）
     InitSerials();
+    WifiInit(WIFI_SSD, WIFI_PSWD);
     
-    // 3. 初始化 WiFi
-    GlobalWifiInit();
-    
-    // 4. 初始化 MQTT
-    MqttInit();
-    
-    // 5. 创建并初始化 UART 服务（SerialProto + UART_NUM_2）
-    g_uartService = NewService();
-    if (g_uartService != NULL) {
-        UartServiceInit(g_uartService);
+    // 2. 分层初始化
+    if (CommLayerInit() != 0) {
+        ESP_LOGE(TAG, "Comm layer init failed");
+        return;
     }
     
-    // 6. 创建并初始化 MQTT 服务（JsonProto + mqtt_comm）
-    g_mqttService = NewService();
-    if (g_mqttService != NULL) {
-        MqttServiceInit(g_mqttService);
+    if (ProtoLayerInit() != 0) {
+        ESP_LOGE(TAG, "Proto layer init failed");
+        return;
+    }
+    
+    if (ServiceLayerInit() != 0) {
+        ESP_LOGE(TAG, "Service layer init failed");
+        return;
     }
 
     ESP_LOGI(TAG, "Global initialization completed");
