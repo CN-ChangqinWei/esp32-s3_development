@@ -6,7 +6,7 @@
 
 uint16_t MotorHandler(void* instance, void* arg) {
     Service* service = (Service*)instance;
-    int res = MotorExec(service, arg);
+    MotorResult res = MotorExec(service->services[PROTO_MOTOR], arg);
     MotorDomainReply re = {PROTO_MOTOR, res};
     if (service != NULL && service->proto != NULL) {
         ProtoSendPackage(service->proto, (char*)&re, sizeof(MotorDomainReply));

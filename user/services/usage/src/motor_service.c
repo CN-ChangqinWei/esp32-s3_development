@@ -2,21 +2,17 @@
 
 #include<stdio.h>
 
-int MotorExec(void* service,void* arg){//根据mode实现各种电机操作
+MotorResult MotorExec(void* service,void* arg){//根据mode实现各种电机操作
     if(service == NULL || arg == NULL) return Fail;
     
     MotorService* motorService = (MotorService*)service;
     MotorDomain* domain = (MotorDomain*)arg;
-    static MotorDomainReply reply;
-    
-    
     
     void* repo = motorService->repo;
     int id = domain->id;
     
     // 检查电机是否存在
     if(!motorService->interface.isMotorExsits(repo, id)){
-        
         return NoSuchDev;
     }
     
@@ -29,12 +25,11 @@ int MotorExec(void* service,void* arg){//根据mode实现各种电机操作
         if(!motorService->interface.shutOff(repo, id)){
             return Fail;
         }
-        
         return Success;
     }
     
     // 根据模式执行相应操作
-    char result = 0;
+    int result = 0;
     switch(domain->mode){
         case PositionAngelMode:
             result = motorService->interface.setPosition(repo, id, 
@@ -53,7 +48,7 @@ int MotorExec(void* service,void* arg){//根据mode实现各种电机操作
             return ArgErr;
     }
     
-    return Success;
+    return result ? Success : Fail;
 }
 
 MotorService* NewMotorService(void* repo,MotorRepoInterface interface){

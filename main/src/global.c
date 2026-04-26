@@ -248,14 +248,9 @@ static int MotorLayerInit(void) {
     }
     
     // 创建2个Motor实例（通过MotorProto使用UART通信）
-    g_motors[0].instance = NewMotorProto(g_uartProto, 0);  // 电机0
-    g_motors[1].instance = NewMotorProto(g_uartProto, 1);  // 电机1
-    g_motors[0].interface=MotorProtoInterfaces();
-    g_motors[1].interface=MotorProtoInterfaces();
-    if (g_motors[0].instance == NULL || g_motors[1].instance == NULL) {
-        ESP_LOGE(TAG, "Motor creation failed");
-        return -1;
-    }
+    InitMotorProto(g_motors,g_uartProto,0);
+    InitMotorProto(g_motors+1,g_uartProto,1);
+    
     ESP_LOGI(TAG, "Motors created (2 instances)");
     
     // 创建MotorRepo

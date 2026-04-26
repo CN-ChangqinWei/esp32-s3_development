@@ -11,4 +11,5 @@ typedef struct{
 
 Motor* NewMotorProto(Proto* proto,int id);
 MotorInterface MotorProtoInterfaces();
+void InitMotorProto(Motor* motor,Proto* proto,int id);
 #endif
