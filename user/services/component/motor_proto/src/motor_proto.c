@@ -61,7 +61,8 @@ static int MotorProtoSetPosition(void* instance, int numAngel, int denAngel, int
         .numAngel = numAngel,
         .denAngel = denAngel,
         .maxAngel = maxAngel,
-        .mode = PositionAngelMode
+        .mode = PositionAngelMode,
+        .powerOn =1
     };
     
     ProtoSendPackage(mp->proto, (char*)&domain, sizeof(MotorDomain));
@@ -76,7 +77,8 @@ static int MotorProtoSetPositionByEncode(void* instance, int encode) {
         .protocol = PROTO_MOTOR,
         .id = mp->id,
         .encode = encode,
-        .mode = PositionEncodeMode
+        .mode = PositionEncodeMode,
+        .powerOn =1
     };
     
     ProtoSendPackage(mp->proto, (char*)&domain, sizeof(MotorDomain));
@@ -92,7 +94,8 @@ static int MotorProtoSetSpeedByPwm(void* instance, int pwmNum, int pwmDen) {
         .id = mp->id,
         .pwmNum = pwmNum,
         .pwmDen = pwmDen,
-        .mode = SpeedEncodeMode  // 使用编码器速度模式标识PWM模式
+        .mode = SpeedEncodeMode,
+        .powerOn =1  // 使用编码器速度模式标识PWM模式
     };
     
     ProtoSendPackage(mp->proto, (char*)&domain, sizeof(MotorDomain));
@@ -108,7 +111,8 @@ static int MotorProtoSetSpeedByAngel(void* instance, int spNumAngel, int spDenAn
         .id = mp->id,
         .spNumAngel = spNumAngel,
         .spDenAngel = spDenAngel,
-        .mode = SpeedAngelMode
+        .mode = SpeedAngelMode,
+        .powerOn =1
     };
     
     ProtoSendPackage(mp->proto, (char*)&domain, sizeof(MotorDomain));
@@ -123,7 +127,8 @@ static int MotorProtoSetSpeedByEncode(void* instance, int encode) {
         .protocol = PROTO_MOTOR,
         .id = mp->id,
         .spEncode = encode,
-        .mode = SpeedEncodeMode
+        .mode = SpeedEncodeMode,
+        .powerOn =1
     };
     
     ProtoSendPackage(mp->proto, (char*)&domain, sizeof(MotorDomain));

@@ -1,6 +1,7 @@
 #include "serial_comm.h"
 #include "serial.h"
-
+#include "esp_log.h"
+static const char TAG[]="SERIAL_COMM";
 
 Communication* NewSerialComm(Serial* serial) {
     SerialComm* serialComm=(SerialComm*)CommMalloc(sizeof(SerialComm));
@@ -25,9 +26,10 @@ uint32_t SerialCommSend(void* instance, char* data, uint32_t len) {
     
     SerialComm* serialComm = (SerialComm*)instance;
     if (serialComm->serial == NULL) return 0;
-    
+    int sendLen=SerialSendUseOtherBuf(serialComm->serial, data, len);
+    ESP_LOGE(TAG, "Send package len = %d",sendLen);
     // 使用 Serial 的发送函数发送数据
-    return SerialSendUseOtherBuf(serialComm->serial, data, len);
+    return sendLen;
 }
 
 uint32_t SerialCommRecv(void* instance, char* data, uint32_t len) {
@@ -39,7 +41,7 @@ uint32_t SerialCommRecv(void* instance, char* data, uint32_t len) {
     // 使用 Serial 模块的阻塞接收函数
     if(SerialBufLen(serialComm->serial)<len) return 0;
     uint32_t readLen = SerialReadBytes(serialComm->serial, (char*)data, len);
-    
+    ESP_LOGE(TAG, "Recv data len = %d",readLen);
     return readLen;
 }
 
