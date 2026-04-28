@@ -38,11 +38,11 @@ void ServiceComm(Service* service, char* buf, int len) {
 }
 
 uint16_t ServiceErrHandler(void* instance, void* arg) {
-    Service* service = (Service*)instance;
-    if (service == NULL || service->proto == NULL) return 1;
-    char msg[60] = {0};
-    sprintf(msg, "errhandler:%s", (char*)arg);
-    ProtoSendPackage(service->proto, msg, strlen(msg));
+    // Service* service = (Service*)instance;
+    // if (service == NULL || service->proto == NULL) return 1;
+    // char msg[60] = {0};
+    // sprintf(msg, "errhandler:%s", (char*)arg);
+    // ProtoSendPackage(service->proto, msg, strlen(msg));
     return 0;
 }
 

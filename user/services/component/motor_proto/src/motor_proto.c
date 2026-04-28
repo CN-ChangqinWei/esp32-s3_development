@@ -24,31 +24,27 @@ Motor* NewMotorProto(Proto* proto, int id) {
 }
 void InitMotorProto(Motor* motor,Proto* proto,int id){
     if (motor == NULL || proto == NULL || id < 0) return;
-    motor->instance = NewMotorProto(proto, id);
+    MotorProto*mp = (MotorProto*)motorMalloc(sizeof(MotorProto));
+    memset(mp,0,sizeof(MotorProto));
+    mp->id=id;
+    mp->proto=proto;
+    motor->instance=mp;
     motor->interface = MotorProtoInterfaces();
+
 }
 static int MotorProtoPowerOn(void* instance) {
     MotorProto* mp = (MotorProto*)instance;
     if (mp == NULL || mp->proto == NULL) return -1;
-    
-    MotorDomain domain = {
-        .protocol = PROTO_MOTOR,  // 假设 PROTO_MOTOR 已定义
-        .id = mp->id,
-        .powerOn = 1
-    };
-    
-    ProtoSendPackage(mp->proto, (char*)&domain, sizeof(MotorDomain));
     return 0;
 }
 
 static int MotorProtoShutDown(void* instance) {
     MotorProto* mp = (MotorProto*)instance;
     if (mp == NULL || mp->proto == NULL) return -1;
-    
     MotorDomain domain = {
         .protocol = PROTO_MOTOR,
         .id = mp->id,
-        .powerOn = 0
+        .powerOn=0
     };
     
     ProtoSendPackage(mp->proto, (char*)&domain, sizeof(MotorDomain));

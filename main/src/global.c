@@ -249,7 +249,7 @@ static int MotorLayerInit(void) {
     
     // 创建2个Motor实例（通过MotorProto使用UART通信）
     InitMotorProto(g_motors,g_uartProto,0);
-    InitMotorProto(g_motors+1,g_uartProto,1);
+    InitMotorProto(&g_motors[1],g_uartProto,1);
     
     ESP_LOGI(TAG, "Motors created (2 instances)");
     
@@ -300,7 +300,7 @@ static int ServiceLayerInit(void) {
             // 注册Health服务
             ServiceRegister(g_uartService, Health, NULL, HealthCommHandler);
             // 注册Motor服务（使用MotorService作为实例）
-            ServiceRegister(g_uartService, PROTO_MOTOR, g_motorService, MotorHandler);
+            //ServiceRegister(g_uartService, PROTO_MOTOR, g_motorService, MotorHandler);
             // 设置错误处理
             RouterHandlerPkg errHandler = {ServiceErrHandler, g_uartService};
             RouterSetErrHandler(g_uartService->router, errHandler);
@@ -318,12 +318,6 @@ static int ServiceLayerInit(void) {
         g_mqttService->proto = g_mqttProto;
         
         // 发送hello测试
-        MotorDomain data = {
-            .protocol = PROTO_MOTOR,
-            .numAngel = 100,
-            .denAngel = 180
-        };
-        ProtoSendPackage(g_mqttService->proto, (char*)&data, sizeof(MotorDomain));
         
         // 创建Router并注入TaskQue
         g_mqttService->router = NewRouter(g_mqttTaskQue);

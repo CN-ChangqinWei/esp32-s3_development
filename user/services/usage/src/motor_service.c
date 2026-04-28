@@ -17,11 +17,7 @@ MotorResult MotorExec(void* service,void* arg){//根据mode实现各种电机操
     }
     
     // 根据电源状态操作
-    if(domain->powerOn){
-        if(!motorService->interface.powerOn(repo, id)){
-            return Fail;
-        }
-    } else {
+    if(domain->powerOn==0){
         if(!motorService->interface.shutOff(repo, id)){
             return Fail;
         }
