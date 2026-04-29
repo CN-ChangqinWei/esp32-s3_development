@@ -1,0 +1,6 @@
+#ifndef _ROBOT_MOTION_RESOLVE_H
+#define _ROBOT_MOTION_RESOLVE_H
+
+
+
+#endif
