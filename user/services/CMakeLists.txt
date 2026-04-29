@@ -14,6 +14,6 @@ list(REMOVE_DUPLICATES inc_dirs)
 idf_component_register(
     SRCS ${src}
     INCLUDE_DIRS ${inc_dirs}
-    REQUIRES freertos tools 
+    REQUIRES freertos tools robot
 )
 
