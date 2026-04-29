@@ -2,7 +2,9 @@
 #define _PLATFORM_H
 #include<stdio.h>
 
-
+//axis 的精度
+typedef float AxisFloat;
+//
 
 extern void* (*robotMalloc)(size_t size);
 extern void  (*robotFree)(void* p);
