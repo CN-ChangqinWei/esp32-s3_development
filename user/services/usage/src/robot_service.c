@@ -2,6 +2,7 @@
 #include <math.h>
 #include <string.h>
 #include"service.h"
+#include"esp_log.h"
 // 默认电机角度参数
 #define DEFAULT_NUM_ANGEL  180
 #define DEFAULT_DEN_ANGEL  180

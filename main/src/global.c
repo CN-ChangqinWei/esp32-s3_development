@@ -13,6 +13,7 @@
 #include "router.h"
 #include "health_comm.h"
 #include "motor_comm.h"
+#include "robot_comm.h"
 #include "service.h"
 #include "protocol.h"
 #include "motor_serialize.h"
@@ -22,12 +23,18 @@
 #include "motor_proto.h"
 #include "motor_service.h"
 #include "motor_repo.h"
+#include "robot_service.h"
+#include "robot_serialize.h"
+#include "robot_repo.h"
 static const char* TAG = "GLOBAL";
 
 // ==================== MotorService 全局定义 ====================
 MotorService* g_motorService = NULL;    // 电机业务服务
-Motor  g_motors[2] = {0};      // 2个电机实例数组（通过MotorProto与UART通信）
+Motor  g_motors[3] = {0};      // 2个电机实例数组（通过MotorProto与UART通信）
 MotorRepo* g_motorRepo = NULL;          // 电机仓库
+RobotService * g_robotService=NULL;
+RobotPositionResolve* g_robotPositionResolve = NULL;
+RobotRepo   *g_robotRepo=NULL;
 #define WIFI_SSD    "荣耀畅玩40"
 #define WIFI_PSWD   "12345678"
 #define MQTT_URL    "mqtt://120.53.247.129:9091"
@@ -204,9 +211,13 @@ static int ProtoLayerInit(void) {
         MotorDomainSerialize,
         MotorDomainReserialize
     };
+    SerializeInterface robotSerializeInterface={
+        RobotDomainSerialize,
+        RobotDomainDeserialize
+    };
     uartSerializeArray[PROTO_MOTOR] = motorSerializeInterface;
     mqttSerializeArray[PROTO_MOTOR] = motorSerializeInterface;
-    
+    mqttSerializeArray[PROTO_ROBOT_POSITION]=robotSerializeInterface;
     // 2.2 UART Proto初始化 (SerialProto)
     if (g_uartComm != NULL) {
         SerialProto* serialProto = NewSerialProto(g_uartComm);
@@ -248,8 +259,8 @@ static int MotorLayerInit(void) {
     }
     
     // 创建2个Motor实例（通过MotorProto使用UART通信）
-    InitMotorProto(g_motors,g_uartProto,0);
-    InitMotorProto(&g_motors[1],g_uartProto,1);
+    InitMotorProto(&g_motors[1],g_uartProto,0);
+    InitMotorProto(&g_motors[2],g_uartProto,1);
     
     ESP_LOGI(TAG, "Motors created (2 instances)");
     
@@ -270,6 +281,54 @@ static int MotorLayerInit(void) {
     ESP_LOGI(TAG, "MotorService OK");
     
     ESP_LOGI(TAG, "=== Motor Layer Init Done ===");
+
+    
+
+    return 0;
+}
+
+
+static int RobotLayerInit(void){
+    ESP_LOGI(TAG, "=== Robot Layer Init ===");
+    
+    // 检查电机仓储是否已创建
+    if (g_motorRepo == NULL) {
+        ESP_LOGE(TAG, "MotorRepo not ready, Robot init failed");
+        return -1;
+    }
+    
+    // a = 110 cm, b = 40 cm, c = 140 cm, H = 0
+    g_robotPositionResolve = NewThreeAxisIrb460(110, 40, 140);
+    if (g_robotPositionResolve == NULL) {
+        ESP_LOGE(TAG, "RobotPositionResolve creation failed");
+        return -1;
+    }
+    ESP_LOGI(TAG, "RobotPositionResolve OK");
+    
+    // 创建RobotRepo（复用g_motors数组，共3个电机）
+    g_robotRepo = NewRobotRepo(g_motors, 3);
+    if (g_robotRepo == NULL) {
+        ESP_LOGE(TAG, "RobotRepo creation failed");
+        return -1;
+    }
+    ESP_LOGI(TAG, "RobotRepo OK");
+    AxisFloat difs[3]={0,M_PI,M_PI_2};
+    AxisFloat scales[3]={1,-1,-1};
+    // 创建RobotService（注入逆运动学解算器和电机仓储）
+    g_robotService = NewRobotService(
+        g_robotPositionResolve, 
+        g_robotRepo, 
+        g_robotRepo->interface, 
+        3,
+        difs,scales,3
+    );
+    if (g_robotService == NULL) {
+        ESP_LOGE(TAG, "RobotService creation failed");
+        return -1;
+    }
+    ESP_LOGI(TAG, "RobotService OK");
+    
+    ESP_LOGI(TAG, "=== Robot Layer Init Done ===");
     return 0;
 }
 
@@ -326,6 +385,8 @@ static int ServiceLayerInit(void) {
             ServiceRegister(g_mqttService, Health, NULL, HealthCommHandler);
             // 注册Motor服务
             ServiceRegister(g_mqttService, PROTO_MOTOR, g_motorService, MotorHandler);
+            // 注册Robot服务
+            ServiceRegister(g_mqttService, PROTO_ROBOT_POSITION, g_robotService, RobotHandler);
             // 设置错误处理
             RouterHandlerPkg errHandler = {ServiceErrHandler, g_mqttService};
             RouterSetErrHandler(g_mqttService->router, errHandler);

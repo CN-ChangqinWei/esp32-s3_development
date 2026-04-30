@@ -29,7 +29,6 @@ static void ThreeAxisIrb460Inverse(void* instance, AxisFloat* in, AxisFloat* out
     // 提取参数
     AxisFloat a = self->a;
     AxisFloat b = self->b;
-    AxisFloat c = self->c;
     AxisFloat H = self->H;
     
     // 三、情况一：目标高度等于底座高度（z = H）
@@ -54,7 +53,7 @@ static void ThreeAxisIrb460Inverse(void* instance, AxisFloat* in, AxisFloat* out
     // 四、情况二：目标高度低于底座高度（z < H）
     else if (z < H) {
         AxisFloat r_1 = H - z;  // 垂直下降距离
-        AxisFloat r_2 = sqrt(r_1 * r_1 + c * c);  // 斜边长度
+        AxisFloat r_2 = sqrt(r_1 * r_1 + L * L);  // 斜边长度
         
         // 顶点角 gamma
         AxisFloat cos_gamma = (a * a + b * b - r_2 * r_2) / (2 * a * b);
@@ -69,7 +68,7 @@ static void ThreeAxisIrb460Inverse(void* instance, AxisFloat* in, AxisFloat* out
         AxisFloat theta_1 = acos(cos_theta1);
         
         // 角度 theta_2（下臂与斜边 r_2 的夹角）
-        AxisFloat cos_theta2 = (r_1 * r_1 + r_2 * r_2 - c * c) / (2 * r_1 * r_2);
+        AxisFloat cos_theta2 = (r_1 * r_1 + r_2 * r_2 - L * L) / (2 * r_1 * r_2);
         if (cos_theta2 > 1.0f) cos_theta2 = 1.0f;
         if (cos_theta2 < -1.0f) cos_theta2 = -1.0f;
         AxisFloat theta_2 = acos(cos_theta2);
@@ -80,7 +79,7 @@ static void ThreeAxisIrb460Inverse(void* instance, AxisFloat* in, AxisFloat* out
     // 五、情况三：目标高度高于底座高度（z > H）
     else {
         AxisFloat r_1 = z - H;  // 垂直上升距离
-        AxisFloat r_2 = sqrt(r_1 * r_1 + c * c);  // 斜边长度
+        AxisFloat r_2 = sqrt(r_1 * r_1 + L * L);  // 斜边长度
         
         // 顶点角 gamma
         AxisFloat cos_gamma = (a * a + b * b - r_2 * r_2) / (2 * a * b);
@@ -117,7 +116,7 @@ static const RobotPositionInterface threeAxisIrb460Interface = {
 };
 
 // ========== 创建函数 ==========
-RobotPositionResolve* NewThreeAxisIrb460(AxisFloat a, AxisFloat b, AxisFloat c, AxisFloat H) {
+RobotPositionResolve* NewThreeAxisIrb460(AxisFloat a, AxisFloat b,  AxisFloat H) {
     // 分配具体实例内存
     ThreeAxisIrb460Instance* instance = (ThreeAxisIrb460Instance*)robotMalloc(sizeof(ThreeAxisIrb460Instance));
     if (NULL == instance) return NULL;
@@ -125,7 +124,6 @@ RobotPositionResolve* NewThreeAxisIrb460(AxisFloat a, AxisFloat b, AxisFloat c, 
     // 初始化具体实例参数
     instance->a = a;
     instance->b = b;
-    instance->c = c;
     instance->H = H;
     
     // 创建抽象类实例

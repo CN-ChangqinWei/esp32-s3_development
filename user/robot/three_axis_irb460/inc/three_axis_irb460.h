@@ -13,12 +13,11 @@
 typedef struct {
     AxisFloat a;  // 连杆a长度
     AxisFloat b;  // 连杆b长度
-    AxisFloat c;  // 连杆c长度
     AxisFloat H;  // 底座高度
 } ThreeAxisIrb460Instance;
 
 // ========== 创建函数 ==========
 // 参数：a, b, c 为三个连杆长度，H 为底座高度
-RobotPositionResolve* NewThreeAxisIrb460(AxisFloat a, AxisFloat b, AxisFloat c, AxisFloat H);
+RobotPositionResolve* NewThreeAxisIrb460(AxisFloat a, AxisFloat b, AxisFloat H);
 
 #endif
