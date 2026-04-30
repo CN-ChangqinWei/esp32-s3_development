@@ -26,6 +26,7 @@
 #include "robot_service.h"
 #include "robot_serialize.h"
 #include "robot_repo.h"
+#define _GLOBAL_LOG  ESP_LOGE
 static const char* TAG = "GLOBAL";
 
 // ==================== MotorService 全局定义 ====================
@@ -168,7 +169,7 @@ static int CommLayerInit(void) {
         g_uartComm = serialComm;
         ESP_LOGI(TAG, "UART Comm OK");
     } else {
-        ESP_LOGE(TAG, "UART Comm failed");
+        _GLOBAL_LOG(TAG, "UART Comm failed");
     }
     
     // 1.2 MQTT Comm初始化
@@ -181,7 +182,7 @@ static int CommLayerInit(void) {
     };
     g_mqttComm = NewMqttComm(&config);
     if (g_mqttComm == NULL) {
-        ESP_LOGE(TAG, "MQTT Comm failed");
+        _GLOBAL_LOG(TAG, "MQTT Comm failed");
         return -1;
     }
     ESP_LOGI(TAG, "MQTT Comm created, waiting connection...");
@@ -192,7 +193,7 @@ static int CommLayerInit(void) {
         vTaskDelay(pdMS_TO_TICKS(100));
     }
     if (timeout <= 0) {
-        ESP_LOGE(TAG, "MQTT connection timeout");
+        _GLOBAL_LOG(TAG, "MQTT connection timeout");
         return -1;
     }
     ESP_LOGI(TAG, "MQTT Comm OK");
@@ -225,12 +226,12 @@ static int ProtoLayerInit(void) {
             g_uartProto = NewProto(serialProto, SerialProtoInterface());
             if (g_uartProto == NULL) {
                 DeleteSerialProto(serialProto);
-                ESP_LOGE(TAG, "UART Proto wrapper failed");
+                _GLOBAL_LOG(TAG, "UART Proto wrapper failed");
             } else {
                 ESP_LOGI(TAG, "UART Proto OK");
             }
         } else {
-            ESP_LOGE(TAG, "UART SerialProto failed");
+            _GLOBAL_LOG(TAG, "UART SerialProto failed");
         }
     }
     
@@ -238,7 +239,7 @@ static int ProtoLayerInit(void) {
     if (g_mqttComm != NULL) {
         g_mqttProto = NewJsonProto(g_mqttComm, mqttSerializeArray, NUM_OF_PROTO);
         if (g_mqttProto == NULL) {
-            ESP_LOGE(TAG, "MQTT Proto failed");
+            _GLOBAL_LOG(TAG, "MQTT Proto failed");
         } else {
             ESP_LOGI(TAG, "MQTT Proto OK");
         }
@@ -254,7 +255,7 @@ static int MotorLayerInit(void) {
     ESP_LOGI(TAG, "=== Motor Layer Init ===");
     
     if (g_uartProto == NULL) {
-        ESP_LOGE(TAG, "UART Proto not ready");
+        _GLOBAL_LOG(TAG, "UART Proto not ready");
         return -1;
     }
     
@@ -267,7 +268,7 @@ static int MotorLayerInit(void) {
     // 创建MotorRepo
     g_motorRepo = NewMotorReop(g_motors, 2);
     if (g_motorRepo == NULL) {
-        ESP_LOGE(TAG, "MotorRepo creation failed");
+        _GLOBAL_LOG(TAG, "MotorRepo creation failed");
         return -1;
     }
     ESP_LOGI(TAG, "MotorRepo OK");
@@ -275,7 +276,7 @@ static int MotorLayerInit(void) {
     // 创建MotorService
     g_motorService = NewMotorService(g_motorRepo, g_motorRepo->interface);
     if (g_motorService == NULL) {
-        ESP_LOGE(TAG, "MotorService creation failed");
+        _GLOBAL_LOG(TAG, "MotorService creation failed");
         return -1;
     }
     ESP_LOGI(TAG, "MotorService OK");
@@ -293,14 +294,14 @@ static int RobotLayerInit(void){
     
     // 检查电机仓储是否已创建
     if (g_motorRepo == NULL) {
-        ESP_LOGE(TAG, "MotorRepo not ready, Robot init failed");
+        _GLOBAL_LOG(TAG, "MotorRepo not ready, Robot init failed");
         return -1;
     }
     
     // a = 110 cm, b = 40 cm, c = 140 cm, H = 0
     g_robotPositionResolve = NewThreeAxisIrb460(110, 40, 140);
     if (g_robotPositionResolve == NULL) {
-        ESP_LOGE(TAG, "RobotPositionResolve creation failed");
+        _GLOBAL_LOG(TAG, "RobotPositionResolve creation failed");
         return -1;
     }
     ESP_LOGI(TAG, "RobotPositionResolve OK");
@@ -308,7 +309,7 @@ static int RobotLayerInit(void){
     // 创建RobotRepo（复用g_motors数组，共3个电机）
     g_robotRepo = NewRobotRepo(g_motors, 3);
     if (g_robotRepo == NULL) {
-        ESP_LOGE(TAG, "RobotRepo creation failed");
+        _GLOBAL_LOG(TAG, "RobotRepo creation failed");
         return -1;
     }
     ESP_LOGI(TAG, "RobotRepo OK");
@@ -323,7 +324,7 @@ static int RobotLayerInit(void){
         difs,scales,3
     );
     if (g_robotService == NULL) {
-        ESP_LOGE(TAG, "RobotService creation failed");
+        _GLOBAL_LOG(TAG, "RobotService creation failed");
         return -1;
     }
     ESP_LOGI(TAG, "RobotService OK");
@@ -341,7 +342,7 @@ static int ServiceLayerInit(void) {
     g_uartTaskQue = NewTaskQue(100);
     g_mqttTaskQue = NewTaskQue(100);
     if (g_uartTaskQue == NULL || g_mqttTaskQue == NULL) {
-        ESP_LOGE(TAG, "TaskQue creation failed");
+        _GLOBAL_LOG(TAG, "TaskQue creation failed");
         return -1;
     }
     TaskQueStart(g_uartTaskQue, -1);
@@ -368,7 +369,7 @@ static int ServiceLayerInit(void) {
         ServiceStart(g_uartService);
         ESP_LOGI(TAG, "UART Service OK");
     } else {
-        ESP_LOGE(TAG, "UART Service init failed");
+        _GLOBAL_LOG(TAG, "UART Service init failed");
     }
     
     // 3.3 创建和初始化MQTT服务
@@ -395,7 +396,7 @@ static int ServiceLayerInit(void) {
         ServiceStart(g_mqttService);
         ESP_LOGI(TAG, "MQTT Service OK");
     } else {
-        ESP_LOGE(TAG, "MQTT Service init failed");
+        _GLOBAL_LOG(TAG, "MQTT Service init failed");
     }
     
     ESP_LOGI(TAG, "=== Service Layer Init Done ===");
@@ -412,7 +413,7 @@ static void UartSetPins(uart_port_t uart_num, const UartPinMap* pin_map) {
                                       pin_map->rts_pin, 
                                       pin_map->cts_pin);
         if (err != ESP_OK) {
-            ESP_LOGE(TAG, "Failed to set UART%d pins", uart_num);
+            _GLOBAL_LOG(TAG, "Failed to set UART%d pins", uart_num);
         } else {
             ESP_LOGI(TAG, "UART%d pins set: TX=%d, RX=%d", 
                      uart_num, pin_map->tx_pin, pin_map->rx_pin);
@@ -443,7 +444,7 @@ static void InitSerials(void) {
 
     serial1 = NewSerial(&config, _SERIAL_BUF_SIZE, sendBuf1, _SERIAL_BUF_SIZE);
     if (serial1 == NULL) {
-        ESP_LOGE(TAG, "Failed to create serial1");
+        _GLOBAL_LOG(TAG, "Failed to create serial1");
         return;
     }
 
@@ -457,7 +458,7 @@ static void InitSerials(void) {
     // 创建 SerialComm 通信层
     serialComm = NewSerialComm(serial1);
     if (serialComm == NULL) {
-        ESP_LOGE(TAG, "Failed to create SerialComm");
+        _GLOBAL_LOG(TAG, "Failed to create SerialComm");
     }
 }
 
@@ -477,19 +478,19 @@ static void UartServiceInit(Service* service) {
     
     // 创建 SerialComm 层
     if (serialComm == NULL) {
-        ESP_LOGE(TAG, "SerialComm not initialized");
+        _GLOBAL_LOG(TAG, "SerialComm not initialized");
         return;
     }
     
     // 创建 Protocol 层 - SerialProto（二进制协议）
     SerialProto* serialProto = NewSerialProto(serialComm);
     if (serialProto == NULL) {
-        ESP_LOGE(TAG, "Failed to create serial proto");
+        _GLOBAL_LOG(TAG, "Failed to create serial proto");
         return;
     }
     service->proto = NewProto(serialProto, SerialProtoInterface());
     if (service->proto == NULL) {
-        ESP_LOGE(TAG, "Failed to create proto wrapper");
+        _GLOBAL_LOG(TAG, "Failed to create proto wrapper");
         DeleteSerialProto(serialProto);
         return;
     }
@@ -497,7 +498,7 @@ static void UartServiceInit(Service* service) {
     // 创建并启动 TaskQue
     g_uartTaskQue = NewTaskQue(100);
     if (g_uartTaskQue == NULL) {
-        ESP_LOGE(TAG, "Failed to create UART task queue");
+        _GLOBAL_LOG(TAG, "Failed to create UART task queue");
         return;
     }
     TaskQueStart(g_uartTaskQue, -1);
@@ -534,7 +535,7 @@ static void MqttServiceInit(Service* service) {
     // 创建 Protocol 层 - JsonProto（JSON协议）
     service->proto = NewJsonProto(mqttComm, mqttSerializeArray, NUM_OF_PROTO);
     if (service->proto == NULL) {
-        ESP_LOGE(TAG, "Failed to create json proto");
+        _GLOBAL_LOG(TAG, "Failed to create json proto");
         return;
     }
 
@@ -549,7 +550,7 @@ static void MqttServiceInit(Service* service) {
     // 创建并启动 TaskQue
     g_mqttTaskQue = NewTaskQue(100);
     if (g_mqttTaskQue == NULL) {
-        ESP_LOGE(TAG, "Failed to create MQTT task queue");
+        _GLOBAL_LOG(TAG, "Failed to create MQTT task queue");
         return;
     }
     TaskQueStart(g_mqttTaskQue, -1);
@@ -581,7 +582,7 @@ void GlobalInit(void) {
         ret = nvs_flash_init();
     }
     if (ret != ESP_OK) {
-        ESP_LOGE(TAG, "NVS init failed");
+        _GLOBAL_LOG(TAG, "NVS init failed");
     }
 
     // 1. 硬件层初始化（串口、WiFi）
@@ -590,22 +591,22 @@ void GlobalInit(void) {
     
     // 2. 分层初始化
     if (CommLayerInit() != 0) {
-        ESP_LOGE(TAG, "Comm layer init failed");
+        _GLOBAL_LOG(TAG, "Comm layer init failed");
         return;
     }
     
     if (ProtoLayerInit() != 0) {
-        ESP_LOGE(TAG, "Proto layer init failed");
+        _GLOBAL_LOG(TAG, "Proto layer init failed");
         return;
     }
     
     if (MotorLayerInit() != 0) {
-        ESP_LOGE(TAG, "Motor layer init failed");
+        _GLOBAL_LOG(TAG, "Motor layer init failed");
         return;
     }
     
     if (ServiceLayerInit() != 0) {
-        ESP_LOGE(TAG, "Service layer init failed");
+        _GLOBAL_LOG(TAG, "Service layer init failed");
         return;
     }
 

@@ -6,6 +6,9 @@
 #include "freertos/FreeRTOS.h"
 #include "serial_proto.h"
 #include "protocol.h"
+#include "esp_log.h"
+#define _SERVICE_LOG ESP_LOGE
+
 extern void* (*serviceMalloc)(size_t size);
 extern void* (*serviceFree)(size_t size);
 typedef struct {
