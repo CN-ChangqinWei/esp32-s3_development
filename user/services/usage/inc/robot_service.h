@@ -26,11 +26,15 @@ typedef struct {
     int numAngel;                      // 默认分子角度
     int denAngel;                      // 默认分母角度
     int maxAngel;                      // 默认最大角度
+    AxisFloat* difs;
+    AxisFloat* scales;
+    int vectorLen;
 } RobotService;
 
 // 构造函数 + 业务入口
 RobotService* NewRobotService(RobotPositionResolve* kinematics, void* motorRepo, 
-                              RobotMotorRepoInterface motorInterface, int motorNum);
+                              RobotMotorRepoInterface motorInterface, int motorNum,
+                              AxisFloat* difs,AxisFloat* scales,int vectorLen);
 RobotResult RobotExec(void* service, void* arg);
 
 #endif

@@ -3,7 +3,7 @@
 #include<stdio.h>
 
 //axis 的精度
-typedef float AxisFloat;
+typedef double AxisFloat;
 //
 
 extern void* (*robotMalloc)(size_t size);

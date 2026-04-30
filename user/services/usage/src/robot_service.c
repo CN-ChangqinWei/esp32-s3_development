@@ -1,7 +1,7 @@
 #include "robot_service.h"
 #include <math.h>
 #include <string.h>
-
+#include"service.h"
 // 默认电机角度参数
 #define DEFAULT_NUM_ANGEL  180
 #define DEFAULT_DEN_ANGEL  180
@@ -42,6 +42,10 @@ RobotResult RobotExec(void* service, void* arg) {
             
             // 将解算出的角度（弧度）转换为整数角度值
             // 假设 output 为弧度，转换为度数
+            if(svc->scales)
+            output[i]*=svc->scales[i];
+            if(svc->difs)
+            output[i]+=svc->difs[i];
             int angleDeg = (int)(output[i] * 180.0f / 3.14159265f);
             
             // 设置电机位置
@@ -57,10 +61,11 @@ RobotResult RobotExec(void* service, void* arg) {
 }
 
 RobotService* NewRobotService(RobotPositionResolve* kinematics, void* motorRepo,
-                              RobotMotorRepoInterface motorInterface, int motorNum) {
+                              RobotMotorRepoInterface motorInterface, int motorNum,AxisFloat* difs,AxisFloat* scales,int vectorLen) {
     if (kinematics == NULL || motorRepo == NULL) return NULL;
     
     RobotService* svc = (RobotService*)pvPortMalloc(sizeof(RobotService));
+    memset(svc,0,sizeof(RobotService));
     if (svc == NULL) return NULL;
     
     svc->kinematics = kinematics;
@@ -70,6 +75,15 @@ RobotService* NewRobotService(RobotPositionResolve* kinematics, void* motorRepo,
     svc->numAngel = DEFAULT_NUM_ANGEL;
     svc->denAngel = DEFAULT_DEN_ANGEL;
     svc->maxAngel = DEFAULT_MAX_ANGEL;
+    svc->vectorLen=vectorLen;
+    if(difs){
+        svc->difs=serviceMalloc(sizeof(AxisFloat)*svc->vectorLen);
+        memcpy(svc->difs,difs,sizeof(AxisFloat)*svc->vectorLen);
+    }
+    if(scales){
+        svc->scales=serviceMalloc(sizeof(AxisFloat)*svc->vectorLen);
+        memcpy(svc->scales,scales,sizeof(AxisFloat)*svc->vectorLen);
+    }
     
     return svc;
 }
