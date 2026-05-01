@@ -6,6 +6,8 @@
 typedef double AxisFloat;
 //
 
+#define _FUNC_RANGE(value,left,right) ((value)<(left)?(left):((value)>(right)?(right):(value)))
+
 extern void* (*robotMalloc)(size_t size);
 extern void  (*robotFree)(void* p);
 

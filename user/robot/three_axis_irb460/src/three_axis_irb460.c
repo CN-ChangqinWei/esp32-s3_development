@@ -19,9 +19,9 @@ static void ThreeAxisIrb460Inverse(void* instance, AxisFloat* in, AxisFloat* out
     AxisFloat y = in[1];
     AxisFloat z = in[2];
     
-    // 输出：关节角 (alpha, beta, gamma)
+    // 输出：关节角 (alpha, beta, gama)
     AxisFloat alpha, beta, gamma;
-    
+    AxisFloat theta3;
     // 一、基础坐标变换：转换为极坐标
     alpha = atan2(x, y);  // 底座旋转角
     AxisFloat L = sqrt(x * x + y * y);  // 水平面投影距离
@@ -31,15 +31,16 @@ static void ThreeAxisIrb460Inverse(void* instance, AxisFloat* in, AxisFloat* out
     AxisFloat b = self->b;
     AxisFloat H = self->H;
     
+
     // 三、情况一：目标高度等于底座高度（z = H）
     if (fabs(z - H) < 1e-6) {
         // 水平平面，构成三角形，两边为 a、b，底边为 L
-        // 顶点角 gamma（由余弦定理）
-        AxisFloat cos_gamma = (a * a + b * b - L * L) / (2 * a * b);
+        // 顶点角 gama
+        AxisFloat cos_theta3 = (a * a + b * b - L * L) / (2 * a * b);
         // 限制范围防止数值误差
-        if (cos_gamma > 1.0f) cos_gamma = 1.0f;
-        if (cos_gamma < -1.0f) cos_gamma = -1.0f;
-        gamma = acos(cos_gamma);
+        if (cos_theta3 > 1.0f) cos_theta3 = 1.0f;
+        if (cos_theta3 < -1.0f) cos_theta3 = -1.0f;
+        theta3 = acos(cos_theta3);
         
         // 底边角 theta_1
         AxisFloat cos_theta1 = (a * a + L * L - b * b) / (2 * a * L);
@@ -55,11 +56,11 @@ static void ThreeAxisIrb460Inverse(void* instance, AxisFloat* in, AxisFloat* out
         AxisFloat r_1 = H - z;  // 垂直下降距离
         AxisFloat r_2 = sqrt(r_1 * r_1 + L * L);  // 斜边长度
         
-        // 顶点角 gamma
-        AxisFloat cos_gamma = (a * a + b * b - r_2 * r_2) / (2 * a * b);
-        if (cos_gamma > 1.0f) cos_gamma = 1.0f;
-        if (cos_gamma < -1.0f) cos_gamma = -1.0f;
-        gamma = acos(cos_gamma);
+        // 顶点角 theta3
+        AxisFloat cos_theta3 = (a * a + b * b - r_2 * r_2) / (2 * a * b);
+        if (cos_theta3 > 1.0f) cos_theta3 = 1.0f;
+        if (cos_theta3 < -1.0f) cos_theta3 = -1.0f;
+        theta3 = acos(cos_theta3);
         
         // 角度 theta_1（上臂与垂直方向夹角）
         AxisFloat cos_theta1 = (a * a + r_2 * r_2 - b * b) / (2 * a * r_2);
@@ -81,11 +82,11 @@ static void ThreeAxisIrb460Inverse(void* instance, AxisFloat* in, AxisFloat* out
         AxisFloat r_1 = z - H;  // 垂直上升距离
         AxisFloat r_2 = sqrt(r_1 * r_1 + L * L);  // 斜边长度
         
-        // 顶点角 gamma
-        AxisFloat cos_gamma = (a * a + b * b - r_2 * r_2) / (2 * a * b);
-        if (cos_gamma > 1.0f) cos_gamma = 1.0f;
-        if (cos_gamma < -1.0f) cos_gamma = -1.0f;
-        gamma = acos(cos_gamma);
+        // 顶点角 theta3
+        AxisFloat cos_theta3 = (a * a + b * b - r_2 * r_2) / (2 * a * b);
+        if (cos_theta3 > 1.0f) cos_theta3 = 1.0f;
+        if (cos_theta3 < -1.0f) cos_theta3 = -1.0f;
+        theta3 = acos(cos_theta3);
         
         // 角度 theta_1（上臂与垂直方向的偏角）
         AxisFloat cos_theta1 = (a * a + r_2 * r_2 - b * b) / (2 * a * r_2);
@@ -102,7 +103,12 @@ static void ThreeAxisIrb460Inverse(void* instance, AxisFloat* in, AxisFloat* out
         // 关节角 beta
         beta = theta_1 + theta_2;
     }
-    
+    gamma= theta3-M_PI+beta;
+
+    beta =  M_PI - beta;
+    beta = _FUNC_RANGE(beta,0,M_PI_2);
+    gamma = _FUNC_RANGE(gamma,0,M_PI_2);
+
     // 输出结果
     out[0] = alpha;   // 底座旋转角
     out[1] = beta;    // 第二个关节角

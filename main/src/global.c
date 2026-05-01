@@ -260,8 +260,9 @@ static int MotorLayerInit(void) {
     }
     
     // 创建2个Motor实例（通过MotorProto使用UART通信）
-    InitMotorProto(&g_motors[1],g_uartProto,0);
-    InitMotorProto(&g_motors[2],g_uartProto,1);
+    InitMotorProto(&g_motors[0],g_uartProto,0);
+    InitMotorProto(&g_motors[1],g_uartProto,1);
+    InitMotorProto(&g_motors[2],g_uartProto,2);
     
     ESP_LOGI(TAG, "Motors created (2 instances)");
     
@@ -299,7 +300,7 @@ static int RobotLayerInit(void){
     }
     
     // a = 110 cm, b = 40 cm, c = 140 cm, H = 0
-    g_robotPositionResolve = NewThreeAxisIrb460(110, 40, 140);
+    g_robotPositionResolve = NewThreeAxisIrb460(110, 140, 0);
     if (g_robotPositionResolve == NULL) {
         _GLOBAL_LOG(TAG, "RobotPositionResolve creation failed");
         return -1;
@@ -313,8 +314,8 @@ static int RobotLayerInit(void){
         return -1;
     }
     ESP_LOGI(TAG, "RobotRepo OK");
-    AxisFloat difs[3]={0,M_PI,M_PI_2};
-    AxisFloat scales[3]={1,-1,-1};
+    AxisFloat difs[3]={0,0,0};
+    AxisFloat scales[3]={1,1,1};
     // 创建RobotService（注入逆运动学解算器和电机仓储）
     g_robotService = NewRobotService(
         g_robotPositionResolve, 
@@ -605,6 +606,11 @@ void GlobalInit(void) {
         return;
     }
     
+    if (RobotLayerInit()!=0){
+        _GLOBAL_LOG(TAG, "Robot layer init failed");
+        return;
+    }
+
     if (ServiceLayerInit() != 0) {
         _GLOBAL_LOG(TAG, "Service layer init failed");
         return;

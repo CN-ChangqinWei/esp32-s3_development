@@ -10,7 +10,7 @@
 #define _SERVICE_LOG ESP_LOGE
 
 extern void* (*serviceMalloc)(size_t size);
-extern void* (*serviceFree)(size_t size);
+extern void (*serviceFree)(void* p);
 typedef struct {
     Proto* proto;        // 协议层实例（替代 communication）
     TaskHandle_t handler;

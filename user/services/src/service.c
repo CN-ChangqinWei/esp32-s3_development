@@ -4,13 +4,19 @@
 #include "serial.h"
 #include "freertos/FreeRTOS.h"
 #include "string.h"
+
+void* (*serviceMalloc)(size_t size)=pvPortMalloc;
+void (*serviceFree)(void* p)=vPortFree;
+
+
+
 Service* NewService(int srvLen) {
-    Service* service = pvPortMalloc(sizeof(Service));
+    Service* service = serviceMalloc(sizeof(Service));
     if (service != NULL) {
         memset(service, 0, sizeof(Service));
     }
     service->srvLen=srvLen;
-    service->services=pvPortMalloc(sizeof(void*)*srvLen);
+    service->services=serviceMalloc(sizeof(void*)*srvLen);
     memset(service->services,0,srvLen*sizeof(void*));
     return service;
 }
@@ -23,7 +29,7 @@ void DeleteService(Service* service) {
         if (service->proto != NULL) {
             DeleteProto(service->proto);
         }
-        vPortFree(service);
+        serviceFree(service);
     }
 }
 
