@@ -70,7 +70,8 @@ static void ServiceCommHanlder(void* p) {
 }
 
 void ServiceStart(Service* service){
-    xTaskCreate(ServiceCommHanlder, "service_comm_handler", 2048,
+    // 增加栈大小到 4096，避免在处理复杂业务（如逆运动学解算）时栈溢出
+    xTaskCreate(ServiceCommHanlder, "service_comm_handler", 4096,
                 service, 4, &service->handler);
 }
 

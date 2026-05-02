@@ -6,6 +6,7 @@ typedef enum{
     PROTO_ECHO,
     PROTO_MOTOR,
     PROTO_ROBOT_POSITION,
+    PROTO_MULTI_MOTOR,
     NUM_OF_PROTO
 } Protocol;
 

@@ -1,6 +1,7 @@
 #include "motor_proto.h"
 #include "freertos/FreeRTOS.h"
 #include <string.h>
+#include "multi_motor_domain.h"
 
 // 静态函数声明
 static int MotorProtoPowerOn(void* instance);
@@ -148,11 +149,11 @@ static int MotorProtoSetBranchMotors(void* insArry, void** params, int num) {
     #define MAX_PROTO_GROUPS 4
     
     Proto* protoGroups[MAX_PROTO_GROUPS] = {NULL};
-    char* sendBufs[MAX_PROTO_GROUPS][8] = {{NULL}};  // 每个proto最多8个包
-    int bufCounts[MAX_PROTO_GROUPS] = {0};
+    char* sendBufs[MAX_PROTO_GROUPS] = {NULL};  // 每个proto一个发送缓冲区
+    int motorCounts[MAX_PROTO_GROUPS] = {0};    // 每个proto的电机数量
     int groupCount = 0;
     
-    // ① 遍历所有电机，按 proto 分组
+    // ① 遍历所有电机，按 proto 分组，统计每个proto的电机数量
     for (int i = 0; i < num; i++) {
         // motors 是结构体数组，使用 &motors[i] 获取每个 Motor 的地址
         if (motors[i].instance == NULL) continue;
@@ -175,72 +176,81 @@ static int MotorProtoSetBranchMotors(void* insArry, void** params, int num) {
             if (groupCount >= MAX_PROTO_GROUPS) continue;  // 组满了，跳过
             groupIdx = groupCount;
             protoGroups[groupIdx] = currentProto;
+            motorCounts[groupIdx] = 0;
             groupCount++;
         }
         
-        // 检查该组是否已满
-        if (bufCounts[groupIdx] >= 8) continue;
+        motorCounts[groupIdx]++;
+    }
+    
+    // ② 为每个 proto 组构造 MultiMotorDomain 数据包
+    // 数据包格式：MultiMotorDomain + nums个MotorDomain
+    for (int i = 0; i < groupCount; i++) {
+        if (protoGroups[i] == NULL || motorCounts[i] == 0) continue;
         
-        // 构造 MotorDomain 数据（格式：4字节长度 + 数据）
-        int dataLen = sizeof(MotorDomain);
-        int totalLen = sizeof(uint32_t) + dataLen;
+        // 计算总数据长度
+        int dataLen = sizeof(MultiMotorDomain) + motorCounts[i] * sizeof(MotorDomain);
+        int totalLen = dataLen;  // 4字节长度 + 数据
+        
         char* buf = (char*)motorMalloc(totalLen);
         if (buf == NULL) continue;
         
         // 写入长度（4字节）
-        uint32_t len = (uint32_t)dataLen;
-        memcpy(buf, &len, sizeof(uint32_t));
         
-        // 从参数中获取 MotorDomain，如果存在则直接使用，否则构造新的
-        if (motorDomains[i] != NULL) {
-            // 直接复制传入的 MotorDomain
-            memcpy(buf + sizeof(uint32_t), motorDomains[i], sizeof(MotorDomain));
-        } else {
-            // 构造默认的 MotorDomain
-            MotorDomain* domain = (MotorDomain*)(buf + sizeof(uint32_t));
-            domain->protocol = PROTO_MOTOR;
-            domain->id = mp->id;
-            domain->powerOn = 1;
-            domain->mode = PositionAngelMode;
-            domain->numAngel = 0;
-            domain->denAngel = 180;
-            domain->maxAngel = 180;
-            domain->encode = 0;
-            domain->pwmNum = 0;
-            domain->pwmDen = 0;
-            domain->spNumAngel = 0;
-            domain->spDenAngel = 0;
-            domain->spEncode = 0;
+        
+        // 构造 MultiMotorDomain 头部
+        MultiMotorDomain* multiDomain = (MultiMotorDomain*)(buf );
+        multiDomain->protocol = PROTO_MULTI_MOTOR;  // 使用批量电机协议
+        multiDomain->nums = motorCounts[i];
+        
+        // 填充 MotorDomain 数组
+        MotorDomain* domains = (MotorDomain*)(buf  + sizeof(MultiMotorDomain));
+        int domainIdx = 0;
+        for (int j = 0; j < num && domainIdx < motorCounts[i]; j++) {
+            if (motors[j].instance == NULL) continue;
+            
+            MotorProto* mp = (MotorProto*)motors[j].instance;
+            if (mp->proto != protoGroups[i]) continue;
+            
+            // 从参数中获取 MotorDomain，如果存在则直接使用，否则构造新的
+            if (motorDomains[j] != NULL) {
+                memcpy(&domains[domainIdx], motorDomains[j], sizeof(MotorDomain));
+            } else {
+                domains[domainIdx].protocol = PROTO_MOTOR;
+                domains[domainIdx].id = mp->id;
+                domains[domainIdx].powerOn = 1;
+                domains[domainIdx].mode = PositionAngelMode;
+                domains[domainIdx].numAngel = 0;
+                domains[domainIdx].denAngel = 180;
+                domains[domainIdx].maxAngel = 180;
+                domains[domainIdx].encode = 0;
+                domains[domainIdx].pwmNum = 0;
+                domains[domainIdx].pwmDen = 0;
+                domains[domainIdx].spNumAngel = 0;
+                domains[domainIdx].spDenAngel = 0;
+                domains[domainIdx].spEncode = 0;
+            }
+            domainIdx++;
         }
         
-        sendBufs[groupIdx][bufCounts[groupIdx]] = buf;
-        bufCounts[groupIdx]++;
+        sendBufs[i] = buf;
     }
     
-    // ② 对每个 proto 组使用 sendBranchPackages 批量发送
+    // ③ 发送每个 proto 组的数据包（单包发送）
     int totalSent = 0;
     for (int i = 0; i < groupCount; i++) {
-        if (protoGroups[i] == NULL || bufCounts[i] == 0) continue;
+        if (protoGroups[i] == NULL || sendBufs[i] == NULL) continue;
         
-        // 使用 proto 的 sendBranchPackages 发送
-        ProtoInterface* interface = &protoGroups[i]->interfaces;
-        if (interface->sendBranchPackages != NULL) {
-            int sent = interface->sendBranchPackages(
-                protoGroups[i]->instance, 
-                sendBufs[i], 
-                bufCounts[i]
-            );
-            if (sent > 0) {
-                totalSent += sent;
-            }
-        }
+        // 计算数据长度（不包含4字节长度字段本身）
+        int dataLen = sizeof(MultiMotorDomain) + motorCounts[i] * sizeof(MotorDomain);
+        int totalLen = sizeof(uint32_t) + dataLen;
+        
+        // 使用 ProtoSendPackage 发送
+        ProtoSendPackage(protoGroups[i], sendBufs[i], totalLen);
+        totalSent += totalLen;
         
         // 释放发送缓冲区
-        for (int j = 0; j < bufCounts[i]; j++) {
-            if (sendBufs[i][j] != NULL) {
-                motorFree(sendBufs[i][j]);
-            }
-        }
+        motorFree(sendBufs[i]);
     }
     
     return totalSent > 0 ? 0 : -1;

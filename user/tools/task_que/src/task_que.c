@@ -131,22 +131,23 @@ void DeleteTaskQue(TaskQue* que) {
     queFree(que);
 }
 
-void TaskQueAdd(TaskQue* que, TaskPackage pkg) {
-    if (que == NULL || que->ringBuf == NULL) return;
+int TaskQueAdd(TaskQue* que, TaskPackage pkg) {
+    if (que == NULL || que->ringBuf == NULL) return 1;
     
     // 获取锁后操作队列
     if (xSemaphoreTake(que->mutex, pdMS_TO_TICKS(10)) != pdTRUE) {
-        return;  // 获取锁失败，放弃添加
+        return 1;  // 获取锁失败，放弃添加
     }
     
     int nextTail = (que->tail + 1) % que->len;
     if (nextTail == que->head) {
         // 队列已满
         xSemaphoreGive(que->mutex);
-        return;
+        return 1;
     }
     
     que->ringBuf[que->tail] = pkg;
     que->tail = nextTail;
     xSemaphoreGive(que->mutex);
+    return 0;
 }

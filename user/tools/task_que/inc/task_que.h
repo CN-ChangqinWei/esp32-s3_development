@@ -23,6 +23,6 @@ TaskQue* NewTaskQue(int len);
 int     TaskQueStart(TaskQue* que,int cpu);
 void    TaskQueStop(TaskQue* que);
 void    DeleteTaskQue(TaskQue* que);
-void    TaskQueAdd(TaskQue* que, TaskPackage pkg);
+int    TaskQueAdd(TaskQue* que, TaskPackage pkg);
 
 #endif
