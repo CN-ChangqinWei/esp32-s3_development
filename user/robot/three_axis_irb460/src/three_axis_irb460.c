@@ -95,13 +95,13 @@ static void ThreeAxisIrb460Inverse(void* instance, AxisFloat* in, AxisFloat* out
         AxisFloat theta_1 = acos(cos_theta1);
         
         // 角度 theta_2（斜边 r_2 与垂直方向的夹角）
-        AxisFloat cos_theta2 = r_1 / r_2;  // 简化：cos(theta_2) = r_1 / r_2
+        AxisFloat cos_theta2 = L/r_2;  // 简化：cos(theta_2) = r_1 / r_2
         if (cos_theta2 > 1.0f) cos_theta2 = 1.0f;
         if (cos_theta2 < -1.0f) cos_theta2 = -1.0f;
         AxisFloat theta_2 = acos(cos_theta2);
         
         // 关节角 beta
-        beta = theta_1 + theta_2;
+        beta = theta_1 + theta_2+M_PI_2;
     }
     gamma= theta3-M_PI+beta;
 
