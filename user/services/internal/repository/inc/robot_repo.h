@@ -16,5 +16,6 @@ RobotRepo* NewRobotRepo(Motor* motors, int len);
 int RobotIsMotorExists(void* repo, int id);
 int RobotSetPosition(void* repo, int id, int numAngel, int denAngel, int maxAngel);
 int RobotPowerOn(void* repo, int id);
+int RobotSetBranchPositions(void* repo, RobotMotorPositionParam* params, int num);
 
 #endif

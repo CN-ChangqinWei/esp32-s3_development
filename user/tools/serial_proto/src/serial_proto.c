@@ -89,18 +89,91 @@ int SerialProtoSendPackage(void* p, char* data, int len) {
         return 0;
     }
 
-    // 先发长度（4字节）
+    // 计算总大小：4字节长度 + 数据
+    int totalLen = sizeof(uint32_t) + len;
+    
+    // 分配临时缓冲区
+    char* tempBuf = (char*)pvPortMalloc(totalLen);
+    if (tempBuf == NULL) {
+        return 0;
+    }
+    
+    // 拷贝长度（4字节）
     uint32_t tempLen = (uint32_t)len;
-    CommSend(proto->comm, (char*)&tempLen, sizeof(uint32_t));
-
-    // 再发数据
-    return CommSend(proto->comm, data, len);
+    memcpy(tempBuf, &tempLen, sizeof(uint32_t));
+    
+    // 拷贝数据
+    memcpy(tempBuf + sizeof(uint32_t), data, len);
+    
+    // 一次性发送
+    int sent = CommSend(proto->comm, tempBuf, totalLen);
+    
+    // 释放临时缓冲区
+    vPortFree(tempBuf);
+    
+    return sent > 0 ? len : 0;
 }
+
+// 批量发送多个数据包
+int SerialProtoSendBranchPackages(void* p, char** bufs, int num) {
+    SerialProto* proto = p;
+    if (proto == NULL || proto->comm == NULL || bufs == NULL || num <= 0) {
+        return 0;
+    }
+    
+    // 计算总大小
+    int totalLen = 0;
+    int validCount = 0;
+    for (int i = 0; i < num; i++) {
+        if (bufs[i] == NULL) continue;
+        // 每个包：4字节长度 + 数据
+        uint32_t len = *(uint32_t*)bufs[i];
+        totalLen += sizeof(uint32_t) + len;
+        validCount++;
+    }
+    
+    if (validCount == 0 || totalLen == 0) {
+        return 0;
+    }
+    
+    // 分配临时缓冲区
+    char* tempBuf = (char*)pvPortMalloc(totalLen);
+    if (tempBuf == NULL) {
+        return 0;
+    }
+    
+    // 拷贝所有数据到缓冲区
+    int offset = 0;
+    for (int i = 0; i < num; i++) {
+        if (bufs[i] == NULL) continue;
+        
+        // 获取当前包的长度（前4字节）
+        uint32_t len = *(uint32_t*)bufs[i];
+        
+        // 拷贝长度（4字节）
+        memcpy(tempBuf + offset, &len, sizeof(uint32_t));
+        offset += sizeof(uint32_t);
+        
+        // 拷贝数据（长度不包含前4字节的长度字段本身）
+        memcpy(tempBuf + offset, bufs[i] + sizeof(uint32_t), len);
+        offset += len;
+    }
+    
+    // 一次性发送
+    int sent = CommSend(proto->comm, tempBuf, totalLen);
+    
+    // 释放临时缓冲区
+    vPortFree(tempBuf);
+    
+    return sent > 0 ? totalLen : 0;
+}
+
 ProtoInterface SerialProtoInterface(){
     ProtoInterface interfaces={
         SerialProtoRecvPackage,
         SerialProtoSendPackage,
-        DeleteSerialProto
+        DeleteSerialProto,
+        SerialProtoSendBranchPackages
     };
     return interfaces;
 }

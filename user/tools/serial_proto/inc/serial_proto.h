@@ -32,6 +32,9 @@ char SerialProtoInit(SerialProto* proto, Communication* comm);
 void* SerialProtoRecvPackage(void* p, int* len);
 int SerialProtoSendPackage(void* p, char* data, int len);
 
+// 批量发送多个数据包
+int SerialProtoSendBranchPackages(void* p, char** bufs, int num);
+
 // 获取接口
 ProtoInterface SerialProtoInterface(void);
 

@@ -40,6 +40,9 @@ void* JsonProtoProtoRecvPackage(void* p, int* len);
 // 发送 JSON 包（根据前4字节协议值，使用对应序列化函数）
 int JsonProtoSendPackage(void* p, char* data, int len);
 
+// 批量发送多个 JSON 数据包
+int JsonProtoSendBranchPackages(void* p, char** bufs, int num);
+
 // 获取 ProtoInterface
 ProtoInterface JsonProtoInterface(void);
 

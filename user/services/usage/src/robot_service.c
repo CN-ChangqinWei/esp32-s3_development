@@ -47,18 +47,22 @@ RobotResult RobotExec(void* service, void* arg) {
         }
     }
     
-    // ⑤ 通过repo设置电机角度
-    if (svc->motorRepo.repo != NULL) {
-        _SERVICE_LOG(TAG, "RobotExec: setting motor positions, motorNum=%d", svc->motorNum);
+    // ⑤ 通过repo批量设置电机角度
+    if (svc->motorRepo.repo != NULL && svc->motorRepo.interface.setBranchPositions != NULL) {
+        _SERVICE_LOG(TAG, "RobotExec: batch setting motor positions, motorNum=%d", svc->motorNum);
+        
+        // 准备批量设置参数
+        RobotMotorPositionParam params[THREE_AXIS_IRB460_OUTPUT_DIM];
+        int validCount = 0;
+        
         for (int i = 0; i < svc->motorNum && i < THREE_AXIS_IRB460_OUTPUT_DIM; i++) {
             // 检查电机是否存在
             if (!svc->motorRepo.interface.isMotorExists(svc->motorRepo.repo, i)) {
                 _SERVICE_LOG(TAG, "RobotExec: motor %d not exists, skip", i);
-                continue;  // 跳过不存在的电机
+                continue;
             }
             
             // 将解算出的角度（弧度）转换为整数角度值
-            // 假设 output 为弧度，转换为度数
             AxisFloat angleRad = output[i];
             if(svc->scales) {
                 angleRad *= svc->scales[i];
@@ -70,17 +74,21 @@ RobotResult RobotExec(void* service, void* arg) {
             
             _SERVICE_LOG(TAG, "RobotExec: motor %d, angleRad=%.2f, angleDeg=%d", i, angleRad, angleDeg);
             
-            // 设置电机位置
-            int setRes = svc->motorRepo.interface.setPosition(svc->motorRepo.repo, i, 
-                                                               angleDeg, svc->denAngel, svc->maxAngel);
-            _SERVICE_LOG(TAG, "RobotExec: motor %d setPosition result=%d", i, setRes);
-            
-            // 上电使能
-            int powerRes = svc->motorRepo.interface.powerOn(svc->motorRepo.repo, i);
-            _SERVICE_LOG(TAG, "RobotExec: motor %d powerOn result=%d", i, powerRes);
+            // 填充批量设置参数
+            params[validCount].id = i;
+            params[validCount].numAngel = angleDeg;
+            params[validCount].denAngel = svc->denAngel;
+            params[validCount].maxAngel = svc->maxAngel;
+            validCount++;
+        }
+        
+        // 批量设置电机位置
+        if (validCount > 0) {
+            int batchRes = svc->motorRepo.interface.setBranchPositions(svc->motorRepo.repo, params, validCount);
+            _SERVICE_LOG(TAG, "RobotExec: batch setBranchPositions result=%d, count=%d", batchRes, validCount);
         }
     } else {
-        _SERVICE_LOG(TAG, "RobotExec: motorRepo is NULL, skip motor control");
+        _SERVICE_LOG(TAG, "RobotExec: motorRepo or setBranchPositions is NULL, skip motor control");
     }
     
     _SERVICE_LOG(TAG, "RobotExec success");

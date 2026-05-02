@@ -6,11 +6,21 @@
 #include "robot_position_resolve.h"
 #include "freertos/FreeRTOS.h"
 #include "three_axis_irb460.h"
+
+// 电机位置参数（用于批量设置）
+typedef struct {
+    int id;
+    int numAngel;
+    int denAngel;
+    int maxAngel;
+} RobotMotorPositionParam;
+
 // 电机仓储接口表（抽象）
 typedef struct {
     int (*isMotorExists)(void* repo, int id);
     int (*setPosition)(void* repo, int id, int numAngel, int denAngel, int maxAngel);
     int (*powerOn)(void* repo, int id);
+    int (*setBranchPositions)(void* repo, RobotMotorPositionParam* params, int num);
 } RobotMotorRepoInterface;
 
 typedef struct {

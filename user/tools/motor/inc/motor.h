@@ -12,6 +12,7 @@ typedef struct{
     int (*setSpeedByPwm)(void*instance,int pwmNum,int pwmDen);
     int (*setSpeedByAngel)(void*instance,int spNumAngel,int spDenAngel);
     int (*setSpeedByEncode)(void*instance,int encode);
+    int (*setBranchMotors)(void* insArry,void** params,int num);//批量设置多个电机,使用时注意motors数组必须是同一种具体类实例
 }MotorInterface;
 typedef struct {
     void*       instance;

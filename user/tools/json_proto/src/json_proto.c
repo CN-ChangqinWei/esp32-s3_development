@@ -191,12 +191,48 @@ int JsonProtoSendPackage(void* p, char* data, int len) {
     return len;
 }
 
+// 批量发送多个 JSON 数据包
+int JsonProtoSendBranchPackages(void* p, char** bufs, int num) {
+    if (p == NULL || bufs == NULL || num <= 0) return 0;
+    
+    JsonProto* jsonProto = (JsonProto*)p;
+    if (jsonProto->comm == NULL) return 0;
+    
+    int totalSent = 0;
+    for (int i = 0; i < num; i++) {
+        if (bufs[i] == NULL) continue;
+        
+        // 从前4字节获取协议值
+        int protocol = *(int*)bufs[i];
+        
+        // 检查协议合法性
+        if (protocol < 0 || protocol >= jsonProto->interfacesLen) continue;
+        
+        SerializeInterface* si = &jsonProto->interfacesArray[protocol];
+        if (si->serialize == NULL) continue;
+        
+        // 调用对应的序列化函数
+        char* jsonStr = si->serialize(bufs[i]);
+        if (jsonStr == NULL) continue;
+        
+        // 发送 JSON 字符串
+        int jsonLen = strlen(jsonStr);
+        CommSend(jsonProto->comm, jsonStr, jsonLen);
+        totalSent += jsonLen;
+        
+        jsonProtoFree(jsonStr);
+    }
+    
+    return totalSent;
+}
+
 // 获取 ProtoInterface
 ProtoInterface JsonProtoInterface(void) {
     ProtoInterface interface = {
         .recvPackage = JsonProtoProtoRecvPackage,
         .sendPackage = JsonProtoSendPackage,
-        .deleteProto = DeleteJsonProto
+        .deleteProto = DeleteJsonProto,
+        .sendBranchPackages = JsonProtoSendBranchPackages
     };
     return interface;
 }
