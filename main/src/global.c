@@ -314,7 +314,7 @@ static int RobotLayerInit(void){
         return -1;
     }
     ESP_LOGI(TAG, "RobotRepo OK");
-    AxisFloat difs[3]={0,0,0};
+    AxisFloat difs[3]={M_PI_2,0,0};
     AxisFloat scales[3]={1,1,1};
     // 创建RobotService（注入逆运动学解算器和电机仓储）
     g_robotService = NewRobotService(
