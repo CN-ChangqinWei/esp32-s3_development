@@ -76,6 +76,44 @@ static int ExtractProtocol(char* jsonStr) {
     return protocol;
 }
 
+// 从 JSON 数组中提取第一个对象
+static char* ExtractFirstArrayObject(const char* jsonArray) {
+    const char* p = jsonArray;
+    
+    // 跳过前导空白和 [
+    while (*p && (*p == ' ' || *p == '\t' || *p == '\n' || *p == '\r' || *p == '[')) p++;
+    
+    if (*p != '{') return NULL;
+    
+    // 找匹配的 }
+    int braceCount = 0;
+    const char* start = p;
+    while (*p) {
+        if (*p == '{') braceCount++;
+        else if (*p == '}') {
+            braceCount--;
+            if (braceCount == 0) {
+                int len = p - start + 1;
+                char* obj = (char*)jsonProtoMalloc(len + 1);
+                if (obj) {
+                    memcpy(obj, start, len);
+                    obj[len] = '\0';
+                }
+                return obj;
+            }
+        }
+        p++;
+    }
+    return NULL;
+}
+
+// 检查是否为 JSON 数组格式
+static int IsJsonArray(const char* str) {
+    const char* p = str;
+    while (*p && (*p == ' ' || *p == '\t' || *p == '\n' || *p == '\r')) p++;
+    return (*p == '[');
+}
+
 // 接收 JSON 包
 void* JsonProtoProtoRecvPackage(void* p, int* len) {
     if (p == NULL) return NULL;
@@ -87,80 +125,114 @@ void* JsonProtoProtoRecvPackage(void* p, int* len) {
     // 临时缓冲区接收数据
     char tempBuf[256];
     uint32_t recvBytes = CommRecv(jsonProto->comm, tempBuf, sizeof(tempBuf));
-    if (recvBytes == 0) return NULL;
-    
-    // 检查是否需要扩展缓冲区
-    while (jsonProto->recvLen + recvBytes > jsonProto->recvBufSize) {
-        if (ExpandRecvBuf(jsonProto) != 0) return NULL;
+    if (recvBytes == 0) {
+        // 没有新数据，检查缓冲区是否有未处理的完整对象
+        if (jsonProto->recvLen == 0) return NULL;
+        // 继续处理已有数据
+    } else {
+        // 检查是否需要扩展缓冲区
+        while (jsonProto->recvLen + recvBytes > jsonProto->recvBufSize) {
+            if (ExpandRecvBuf(jsonProto) != 0) return NULL;
+        }
+        
+        // 追加到接收缓冲区
+        memcpy(jsonProto->recvBuf + jsonProto->recvLen, tempBuf, recvBytes);
+        jsonProto->recvLen += recvBytes;
+        jsonProto->recvBuf[jsonProto->recvLen] = '\0';
     }
     
-    // 追加到接收缓冲区
-    memcpy(jsonProto->recvBuf + jsonProto->recvLen, tempBuf, recvBytes);
-    jsonProto->recvLen += recvBytes;
-    jsonProto->recvBuf[jsonProto->recvLen] = '\0';
+    // 确保缓冲区有数据
+    if (jsonProto->recvLen == 0) return NULL;
     
-    // 解析 JSON 大括号匹配
-    for (int i = jsonProto->recvLen - recvBytes; i < jsonProto->recvLen; i++) {
-        char c = jsonProto->recvBuf[i];
-        if (c == '{') {
-            if (jsonProto->braceCount == 0) {
-                jsonProto->inJson = 1;
-                jsonProto->jsonStart = i;
+    char* jsonStr = NULL;
+    int processedLen = 0;
+    
+    // 检查是否是 JSON 数组格式
+    if (IsJsonArray(jsonProto->recvBuf)) {
+        // 尝试从数组中提取第一个对象
+        jsonStr = ExtractFirstArrayObject(jsonProto->recvBuf);
+        if (jsonStr != NULL) {
+            // 计算已处理的长度（从 [ 到 } 后的逗号或 ]）
+            char* endPtr = strstr(jsonProto->recvBuf, jsonStr) + strlen(jsonStr);
+            processedLen = endPtr - jsonProto->recvBuf;
+            // 跳过逗号和空白
+            while (processedLen < jsonProto->recvLen && 
+                   (jsonProto->recvBuf[processedLen] == ',' || 
+                    jsonProto->recvBuf[processedLen] == ' ' ||
+                    jsonProto->recvBuf[processedLen] == '\t' ||
+                    jsonProto->recvBuf[processedLen] == '\n' ||
+                    jsonProto->recvBuf[processedLen] == '\r')) {
+                processedLen++;
             }
-            jsonProto->braceCount++;
-        } else if (c == '}' && jsonProto->inJson) {
-            jsonProto->braceCount--;
-            if (jsonProto->braceCount == 0) {
-                // 找到完整 JSON
-                int jsonLen = i - jsonProto->jsonStart + 1;
-                char* jsonStr = (char*)jsonProtoMalloc(jsonLen + 1);
-                if (jsonStr == NULL) return NULL;
-                
-                memcpy(jsonStr, jsonProto->recvBuf + jsonProto->jsonStart, jsonLen);
-                jsonStr[jsonLen] = '\0';
-                
-                // 提取 protocol 值
-                int protocol = ExtractProtocol(jsonStr);
-                
-                // 检查 protocol 合法性
-                if (protocol < 0 || protocol >= jsonProto->interfacesLen) {
-                    jsonProtoFree(jsonStr);
-                    // 移动剩余数据
-                    int remaining = jsonProto->recvLen - (i + 1);
-                    if (remaining > 0) {
-                        memmove(jsonProto->recvBuf, jsonProto->recvBuf + i + 1, remaining);
-                    }
-                    jsonProto->recvLen = remaining;
-                    jsonProto->inJson = 0;
-                    return NULL;
+        }
+    } else {
+        // 非数组格式，使用大括号匹配
+        for (int i = 0; i < jsonProto->recvLen; i++) {
+            char c = jsonProto->recvBuf[i];
+            if (c == '{') {
+                if (jsonProto->braceCount == 0) {
+                    jsonProto->inJson = 1;
+                    jsonProto->jsonStart = i;
                 }
-                
-                // 调用对应的反序列化函数
-                SerializeInterface* si = &jsonProto->interfacesArray[protocol];
-                void* package = NULL;
-                if (si->reserialize != NULL) {
-                    package = si->reserialize(jsonStr);
+                jsonProto->braceCount++;
+            } else if (c == '}' && jsonProto->inJson) {
+                jsonProto->braceCount--;
+                if (jsonProto->braceCount == 0) {
+                    // 找到完整 JSON
+                    int jsonLen = i - jsonProto->jsonStart + 1;
+                    jsonStr = (char*)jsonProtoMalloc(jsonLen + 1);
+                    if (jsonStr == NULL) return NULL;
+                    
+                    memcpy(jsonStr, jsonProto->recvBuf + jsonProto->jsonStart, jsonLen);
+                    jsonStr[jsonLen] = '\0';
+                    processedLen = i + 1;
+                    break;
                 }
-                
-                jsonProtoFree(jsonStr);
-                
-                // 移动剩余数据
-                int remaining = jsonProto->recvLen - (i + 1);
-                if (remaining > 0) {
-                    memmove(jsonProto->recvBuf, jsonProto->recvBuf + i + 1, remaining);
-                }
-                jsonProto->recvLen = remaining;
-                jsonProto->inJson = 0;
-                
-                if (len != NULL) {
-                    *len = sizeof(void*);  // 返回指针大小
-                }
-                return package;
             }
         }
     }
     
-    return NULL;
+    if (jsonStr == NULL) return NULL;
+    
+    // 提取 protocol 值
+    int protocol = ExtractProtocol(jsonStr);
+    
+    // 检查 protocol 合法性
+    if (protocol < 0 || protocol >= jsonProto->interfacesLen) {
+        jsonProtoFree(jsonStr);
+        // 移动剩余数据
+        int remaining = jsonProto->recvLen - processedLen;
+        if (remaining > 0) {
+            memmove(jsonProto->recvBuf, jsonProto->recvBuf + processedLen, remaining);
+        }
+        jsonProto->recvLen = remaining;
+        jsonProto->inJson = 0;
+        jsonProto->braceCount = 0;
+        return NULL;
+    }
+    
+    // 调用对应的反序列化函数
+    SerializeInterface* si = &jsonProto->interfacesArray[protocol];
+    void* package = NULL;
+    if (si->reserialize != NULL) {
+        package = si->reserialize(jsonStr);
+    }
+    
+    jsonProtoFree(jsonStr);
+    
+    // 移动剩余数据
+    int remaining = jsonProto->recvLen - processedLen;
+    if (remaining > 0) {
+        memmove(jsonProto->recvBuf, jsonProto->recvBuf + processedLen, remaining);
+    }
+    jsonProto->recvLen = remaining;
+    jsonProto->inJson = 0;
+    jsonProto->braceCount = 0;
+    
+    if (len != NULL) {
+        *len = sizeof(void*);
+    }
+    return package;
 }
 
 // 发送 JSON 包
