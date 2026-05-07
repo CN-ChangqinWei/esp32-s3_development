@@ -6,6 +6,7 @@
 #include "robot_position_resolve.h"
 #include "freertos/FreeRTOS.h"
 #include "three_axis_irb460.h"
+#include "task_que.h"
 
 // 电机位置参数（用于批量设置）
 typedef struct {
@@ -39,6 +40,7 @@ typedef struct {
     AxisFloat* difs;
     AxisFloat* scales;
     int vectorLen;
+    TaskQue* taskQue;              // 电机执行任务队列
 } RobotService;
 
 // 构造函数 + 业务入口
@@ -46,5 +48,6 @@ RobotService* NewRobotService(RobotPositionResolve* kinematics, void* motorRepo,
                               RobotMotorRepoInterface motorInterface, int motorNum,
                               AxisFloat* difs,AxisFloat* scales,int vectorLen);
 RobotResult RobotExec(void* service, void* arg);
+void DeleteRobotService(RobotService* svc);
 
 #endif
