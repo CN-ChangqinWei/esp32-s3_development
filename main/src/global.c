@@ -299,8 +299,8 @@ static int RobotLayerInit(void){
         return -1;
     }
     
-    // a = 110 cm, b = 40 cm, c = 140 cm, H = 0
-    g_robotPositionResolve = NewThreeAxisIrb460(110, 140, 0);
+    // a = 110 cm, b = 140 cm, H = 0
+    g_robotPositionResolve = NewThreeAxisIrb460(60, 75, 0);
     if (g_robotPositionResolve == NULL) {
         _GLOBAL_LOG(TAG, "RobotPositionResolve creation failed");
         return -1;
