@@ -1,7 +1,7 @@
 #ifndef _ROBOT_POSITION_RESOLVE_H
 #define _ROBOT_POSITION_RESOLVE_H
 
-#include "platform.h"
+#include "robot_platform.h"
 
 // ========== ① 接口表（虚函数表 V-Table）==========
 typedef struct {

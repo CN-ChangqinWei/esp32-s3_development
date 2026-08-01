@@ -26,6 +26,7 @@
 #include "robot_service.h"
 #include "robot_serialize.h"
 #include "robot_repo.h"
+#include "distance_line_insert.h"
 #define _GLOBAL_LOG  ESP_LOGE
 static const char* TAG = "GLOBAL";
 
@@ -190,7 +191,7 @@ static int CommLayerInit(void) {
     // 等待MQTT连接
     int timeout = 100;
     while (!MqttCommIsConnected(g_mqttComm) && timeout-- > 0) {
-        vTaskDelay(pdMS_TO_TICKS(100));
+        vTaskDelay(pdMS_TO_TICKS(500));
     }
     if (timeout <= 0) {
         _GLOBAL_LOG(TAG, "MQTT connection timeout");
@@ -318,7 +319,8 @@ static int RobotLayerInit(void){
     AxisFloat scales[3]={1,1,1};
     // 创建RobotService（注入逆运动学解算器和电机仓储）
     g_robotService = NewRobotService(
-        g_robotPositionResolve, 
+        g_robotPositionResolve,
+        NewDistanceLineInsert(20),                        // positionInsert（可后续注入具体插值器实例）
         g_robotRepo, 
         g_robotRepo->interface, 
         3,
@@ -575,7 +577,6 @@ static void MqttServiceInit(Service* service) {
 
 void GlobalInit(void) {
     ESP_LOGI(TAG, "Starting global initialization...");
-
     // 0. 基础初始化
     esp_err_t ret = nvs_flash_init();
     if (ret == ESP_ERR_NVS_NO_FREE_PAGES || ret == ESP_ERR_NVS_NEW_VERSION_FOUND) {
@@ -585,38 +586,34 @@ void GlobalInit(void) {
     if (ret != ESP_OK) {
         _GLOBAL_LOG(TAG, "NVS init failed");
     }
-
     // 1. 硬件层初始化（串口、WiFi）
     InitSerials();
     WifiInit(WIFI_SSD, WIFI_PSWD);
-    
     // 2. 分层初始化
     if (CommLayerInit() != 0) {
         _GLOBAL_LOG(TAG, "Comm layer init failed");
         return;
     }
-    
     if (ProtoLayerInit() != 0) {
         _GLOBAL_LOG(TAG, "Proto layer init failed");
         return;
     }
-    
     if (MotorLayerInit() != 0) {
         _GLOBAL_LOG(TAG, "Motor layer init failed");
         return;
     }
-    
     if (RobotLayerInit()!=0){
         _GLOBAL_LOG(TAG, "Robot layer init failed");
         return;
     }
-
     if (ServiceLayerInit() != 0) {
         _GLOBAL_LOG(TAG, "Service layer init failed");
         return;
     }
-
     ESP_LOGI(TAG, "Global initialization completed");
+    while(1){
+        vTaskDelay(pdMS_TO_TICKS(1000));
+    }
 }
 
 // ==================== 获取 GPIO 映射 ====================

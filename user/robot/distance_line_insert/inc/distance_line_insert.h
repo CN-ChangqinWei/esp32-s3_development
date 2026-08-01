@@ -2,7 +2,7 @@
 #define _DISTANCE_LINE_INSERT_H
 
 #include "position_insert.h"
-#include "platform.h"
+#include "robot_platform.h"
 
 // ========== 坐标点结构体 ==========
 typedef struct {

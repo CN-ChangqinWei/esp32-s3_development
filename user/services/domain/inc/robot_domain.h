@@ -2,7 +2,7 @@
 #define _ROBOT_DOMAIN_H
 
 #include <stdint.h>
-#include "platform.h"
+#include "robot_platform.h"
 
 // ① 状态/结果枚举
 typedef enum {

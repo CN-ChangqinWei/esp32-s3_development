@@ -7,6 +7,7 @@
 #include "freertos/FreeRTOS.h"
 #include "three_axis_irb460.h"
 #include "task_que.h"
+#include "position_insert.h"
 
 // 电机位置参数（用于批量设置）
 typedef struct {
@@ -31,22 +32,26 @@ typedef struct {
 
 // Robot服务结构体
 typedef struct {
-    RobotPositionResolve* kinematics;  // 逆运动学解算器
-    RobotMotorRepoWrapper motorRepo;   // 电机仓储包装器
-    int motorNum;                      // 电机数量（通常为3）
-    int numAngel;                      // 默认分子角度
-    int denAngel;                      // 默认分母角度
-    int maxAngel;                      // 默认最大角度
+    RobotPositionResolve* kinematics;    // 逆运动学解算器
+    RobotMotorRepoWrapper motorRepo;     // 电机仓储包装器
+    PositionInsert* positionInsert;      // 位置插值器（外部注入，可为NULL）
+    int motorNum;                        // 电机数量（通常为3）
+    int numAngel;                        // 默认分子角度
+    int denAngel;                        // 默认分母角度
+    int maxAngel;                        // 默认最大角度
     AxisFloat* difs;
     AxisFloat* scales;
     int vectorLen;
-    TaskQue* taskQue;              // 电机执行任务队列
+    AxisFloat lastX;                     // 上一个目标点X（用于插值）
+    AxisFloat lastY;                     // 上一个目标点Y
+    AxisFloat lastZ;                     // 上一个目标点Z
+    TaskQue* taskQue;                    // 电机执行任务队列
 } RobotService;
 
 // 构造函数 + 业务入口
-RobotService* NewRobotService(RobotPositionResolve* kinematics, void* motorRepo, 
-                              RobotMotorRepoInterface motorInterface, int motorNum,
-                              AxisFloat* difs,AxisFloat* scales,int vectorLen);
+RobotService* NewRobotService(RobotPositionResolve* kinematics, PositionInsert* positionInsert,
+                              void* motorRepo, RobotMotorRepoInterface motorInterface, int motorNum,
+                              AxisFloat* difs, AxisFloat* scales, int vectorLen);
 RobotResult RobotExec(void* service, void* arg);
 void DeleteRobotService(RobotService* svc);
 

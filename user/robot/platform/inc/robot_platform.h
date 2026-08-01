@@ -1,5 +1,5 @@
-#ifndef _PLATFORM_H
-#define _PLATFORM_H
+#ifndef _ROBOT_PLATFORM_H
+#define _ROBOT_PLATFORM_H
 #include<stdio.h>
 
 //axis 的精度

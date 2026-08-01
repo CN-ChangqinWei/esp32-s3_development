@@ -4,11 +4,11 @@
 void app_main(void)
 {
     printf("hello world\n");
-    GlobalInit();
+    
     while (1)
     {
         /* code */
-        
+        GlobalInit();
         vTaskDelay(pdMS_TO_TICKS(100));
     }
     
