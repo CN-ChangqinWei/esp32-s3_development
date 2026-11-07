@@ -44,16 +44,16 @@ RobotRepo   *g_robotRepo=NULL;
 // 根据实际硬件修改以下引脚定义
 
 GpioPinMap g_gpio_map = {
-    // UART1 - 调试用 (TX=GPIO4, RX=GPIO5)
-    .uart1 = {
+    // 调试串口 (TX=GPIO4, RX=GPIO5)，当前未启用
+    .uart_dbg = {
         .tx_pin = GPIO_NUM_4,
         .rx_pin = GPIO_NUM_5,
         .rts_pin = GPIO_NUM_NC,     // 未使用
         .cts_pin = GPIO_NUM_NC,     // 未使用
         .use_flow_ctrl = 0
     },
-    // UART2 - 通信用 (TX=GPIO17, RX=GPIO16)
-    .uart2 = {
+    // 通信串口 (TX=GPIO17, RX=GPIO16)，对应 UART_NUM_1
+    .uart_comm = {
         .tx_pin = GPIO_NUM_17,
         .rx_pin = GPIO_NUM_16,
         .rts_pin = GPIO_NUM_NC,
@@ -429,9 +429,10 @@ static void UartSetPins(uart_port_t uart_num, const UartPinMap* pin_map) {
 static void InitSerials(void) {
     const GpioPinMap* map = &g_gpio_map;
     
-    // 默认配置：UART2, 9600, 8N1
+    // 默认配置：通信串口使用 UART1
+    // 注意：ESP32-C3 仅有 UART0/UART1，UART0 已被 console 占用，故通信口用 UART1
     SerialConfig config = {
-        .uart_num = UART_NUM_2,
+        .uart_num = UART_NUM_1,
         .rx_buffer_size = _SERIAL_DMA_BUF_SIZE,
         .tx_buffer_size = 0,
         .queue_size = 0,
@@ -451,12 +452,12 @@ static void InitSerials(void) {
         return;
     }
 
-    // 设置 UART 引脚映射
-    UartSetPins(UART_NUM_2, &map->uart2);
+    // 设置 UART 引脚映射（使用 uart_comm 这组引脚：TX=GPIO17, RX=GPIO16）
+    UartSetPins(UART_NUM_1, &map->uart_comm);
 
     // 启动接收任务
     SerialStartRxTask(serial1, 5);
-    ESP_LOGI(TAG, "Serial1 (UART2) initialized successfully");
+    ESP_LOGI(TAG, "Serial1 (UART1) initialized successfully");
     
     // 创建 SerialComm 通信层
     serialComm = NewSerialComm(serial1);

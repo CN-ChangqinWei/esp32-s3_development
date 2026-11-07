@@ -1,0 +1,16 @@
+# ============================================================================
+# 项目级 ESP-IDF 配置默认值
+#
+# 本文件纳入版本控制；同目录的 sdkconfig 被 .gitignore 忽略（本机生成物）。
+# 本文件只写「与 ESP-IDF 默认值不同」的项，等价于 idf.py save-defconfig 的语义。
+# ============================================================================
+
+# 目标芯片固定为 ESP32-C3。
+# 不写这一行时，全新克隆的工程在无 sdkconfig 状态下会按 IDF 默认 target=esp32 配置，
+# 得到错误芯片的固件（tools/cmake/targets.cmake 的 target 猜测顺序为
+# sdkconfig -> sdkconfig.defaults -> 默认 esp32）。
+# 注意：如需更换芯片，请先改这一行，否则 targets.cmake 会报 target 不一致的 FATAL_ERROR。
+CONFIG_IDF_TARGET="esp32c3"
+
+# 主固件已接近 1MB（SINGLE_APP），改用 1.5MB factory 分区
+CONFIG_PARTITION_TABLE_SINGLE_APP_LARGE=y

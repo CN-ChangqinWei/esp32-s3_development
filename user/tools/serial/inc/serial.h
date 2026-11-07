@@ -9,7 +9,7 @@
 
 // ESP32 UART 配置结构体
 typedef struct {
-    uart_port_t uart_num;           // UART 端口号 (UART_NUM_0, UART_NUM_1, UART_NUM_2)
+    uart_port_t uart_num;           // UART 端口号 (ESP32-C3 仅支持 UART_NUM_0 / UART_NUM_1)
     uart_config_t uart_config;      // UART 配置
     int rx_buffer_size;             // 接收缓冲区大小
     int tx_buffer_size;             // 发送缓冲区大小

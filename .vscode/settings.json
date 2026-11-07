@@ -5,7 +5,6 @@
   "idf.openOcdConfigs": [
     "board/esp32c3-builtin.cfg"
   ],
-  "idf.portWin": "COM7",
   "idf.toolsPathWin": "e:\\esp32-idf_tools",
   "idf.customExtraVars": {
     "IDF_TARGET": "esp32c3"
@@ -16,5 +15,7 @@
     "--query-driver=**",
     "--compile-commands-dir=e:\\esp32Projects\\esp32_development\\build"
   ],
-  "idf.flashType": "UART"
+  "idf.flashType": "UART",
+  "idf.port": "COM11",
+  "idf.currentSetup": "e:\\esp32-idf\\v5.5.3\\esp-idf"
 }
