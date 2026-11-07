@@ -9,9 +9,16 @@
 # 抽象层头文件不包含任何 ESP-IDF / FreeRTOS 头，因此驱动依赖放 PRIV_REQUIRES，
 # 使用方（main 等）只依赖 hal_ext 的抽象头即可，不会被拖入平台头文件链。
 
-file(GLOB_RECURSE src "*.c")
-
-file(GLOB_RECURSE all_headers "*.h")
+# 新增模块 .c/.h 时自动重跑 CMake，避免 build.ninja 漏收录新文件。
+# ESP-IDF 会用 `cmake -P` 早展开组件 CMakeLists（script 模式禁用 CONFIGURE_DEPENDS），
+# 故必须按 CMAKE_BUILD_EARLY_EXPANSION 分支降级为普通 GLOB。
+if(CMAKE_BUILD_EARLY_EXPANSION)
+    file(GLOB_RECURSE src "*.c")
+    file(GLOB_RECURSE all_headers "*.h")
+else()
+    file(GLOB_RECURSE src CONFIGURE_DEPENDS "*.c")
+    file(GLOB_RECURSE all_headers CONFIGURE_DEPENDS "*.h")
+endif()
 set(inc_dirs "")
 foreach(header ${all_headers})
     get_filename_component(dir ${header} DIRECTORY)
