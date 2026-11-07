@@ -18,7 +18,7 @@
  *
  * 头文件约束（强制）：
  *   1. 本文件只包含抽象父类 pwm.h 与 <stdint.h>，
- *      禁止包含 driver/*、freertos/*、esp_*.h 等平台头，
+ *      禁止包含 driver、freertos 下的平台头与 esp_*.h 等平台头，
  *      保证使用方不被拖入平台头文件链（hal 组件用 PRIV_REQUIRES 隐藏驱动依赖）；
  *   2. 结构体字段只用中性整型（uint32_t / uint8_t），平台类型
  *      （ledc_timer_t / ledc_channel_t / ledc_timer_config_t / esp_err_t …）

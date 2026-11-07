@@ -6,7 +6,7 @@
  *
  * 依赖约定：
  *   本头文件只包含抽象父类 gpio.h（以及 <stdint.h>），
- *   禁止包含 driver/* 、freertos/* 、esp_*.h 等平台头，
+ *   禁止包含 driver、freertos 下的平台头与 esp_*.h 等平台头，
  *   因此使用方（main / 业务层）不会被拖入平台头文件链，
  *   hal 组件可以继续用 PRIV_REQUIRES 隐藏驱动依赖。
  *   平台类型（esp_err_t / gpio_num_t / gpio_config_t …）只出现在

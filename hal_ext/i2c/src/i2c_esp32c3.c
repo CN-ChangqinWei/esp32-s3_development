@@ -115,7 +115,7 @@ static int i2cEsp32c3ApplyConfig(I2cEsp32c3* self, uint32_t clockHz)
     conf.scl_pullup_en    = true;
     conf.master.clk_speed = clockHz;
 
-    err = i2c_param_config((i2c_port_num_t)self->port, &conf);
+    err = i2c_param_config((i2c_port_t)self->port, &conf);
 
     return (ESP_OK == err) ? I2C_ESP32C3_OK : I2C_ESP32C3_ERR_PARAM;
 }
@@ -132,7 +132,7 @@ static int i2cEsp32c3Install(I2cEsp32c3* self)
         return I2C_ESP32C3_ERR_PARAM;
     }
 
-    err = i2c_driver_install((i2c_port_num_t)self->port, I2C_MODE_MASTER, 0, 0, 0);
+    err = i2c_driver_install((i2c_port_t)self->port, I2C_MODE_MASTER, 0, 0, 0);
     if (ESP_OK != err) {
         return I2C_ESP32C3_ERR_PARAM;
     }
@@ -180,7 +180,7 @@ static int i2cEsp32c3Deinit(void* instance)
         return I2C_ESP32C3_OK; /* 未安装视为已卸载（幂等） */
     }
 
-    err = i2c_driver_delete((i2c_port_num_t)self->port);
+    err = i2c_driver_delete((i2c_port_t)self->port);
     if (ESP_OK != err) {
         return I2C_ESP32C3_ERR_PARAM;
     }
@@ -224,7 +224,7 @@ static int i2cEsp32c3Write(void* instance, uint16_t deviceAddress,
     (void)i2c_master_write(cmd, data, (size_t)len, true);
     (void)i2c_master_stop(cmd);
 
-    err = i2c_master_cmd_begin((i2c_port_num_t)self->port, cmd,
+    err = i2c_master_cmd_begin((i2c_port_t)self->port, cmd,
                                i2cEsp32c3Ticks(timeoutMs));
     i2c_cmd_link_delete(cmd);
 
@@ -265,7 +265,7 @@ static int i2cEsp32c3Read(void* instance, uint16_t deviceAddress,
     (void)i2c_master_read(cmd, buffer, (size_t)len, I2C_MASTER_LAST_NACK);
     (void)i2c_master_stop(cmd);
 
-    err = i2c_master_cmd_begin((i2c_port_num_t)self->port, cmd,
+    err = i2c_master_cmd_begin((i2c_port_t)self->port, cmd,
                                i2cEsp32c3Ticks(timeoutMs));
     i2c_cmd_link_delete(cmd);
 
@@ -324,7 +324,7 @@ static int i2cEsp32c3WriteRead(void* instance, uint16_t deviceAddress,
     }
     (void)i2c_master_stop(cmd);
 
-    err = i2c_master_cmd_begin((i2c_port_num_t)self->port, cmd,
+    err = i2c_master_cmd_begin((i2c_port_t)self->port, cmd,
                                i2cEsp32c3Ticks(timeoutMs));
     i2c_cmd_link_delete(cmd);
 
@@ -361,7 +361,7 @@ static int i2cEsp32c3Probe(void* instance, uint16_t deviceAddress)
                                 (uint8_t)((deviceAddress << 1) | I2C_MASTER_WRITE), true);
     (void)i2c_master_stop(cmd);
 
-    err = i2c_master_cmd_begin((i2c_port_num_t)self->port, cmd,
+    err = i2c_master_cmd_begin((i2c_port_t)self->port, cmd,
                                i2cEsp32c3Ticks(I2C_ESP32C3_PROBE_TIMEOUT_MS));
     i2c_cmd_link_delete(cmd);
 
@@ -413,12 +413,12 @@ static int i2cEsp32c3Reset(void* instance)
         return I2C_ESP32C3_ERR_PARAM;
     }
 
-    err = i2c_reset_tx_fifo((i2c_port_num_t)self->port);
+    err = i2c_reset_tx_fifo((i2c_port_t)self->port);
     if (ESP_OK != err) {
         return I2C_ESP32C3_ERR_PARAM;
     }
 
-    err = i2c_reset_rx_fifo((i2c_port_num_t)self->port);
+    err = i2c_reset_rx_fifo((i2c_port_t)self->port);
     if (ESP_OK != err) {
         return I2C_ESP32C3_ERR_PARAM;
     }
@@ -437,7 +437,7 @@ static void i2cEsp32c3DeleteInstance(void* instance)
 
     if ((0U != self->installed) &&
         (I2C_ESP32C3_OK == i2cEsp32c3CheckPort(self->port))) {
-        (void)i2c_driver_delete((i2c_port_num_t)self->port);
+        (void)i2c_driver_delete((i2c_port_t)self->port);
         self->installed = 0;
     }
 

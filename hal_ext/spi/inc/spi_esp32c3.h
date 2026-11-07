@@ -11,7 +11,7 @@
  *   使用方只面向 Spi* 抽象编程（全程不接触 ESP-IDF 类型）。
  *
  * 硬约束（本头文件的立身之本）：
- *   1. 禁止包含任何 ESP-IDF / FreeRTOS 头（driver/* 、freertos/* 、esp_*.h）；
+ *   1. 禁止包含任何 ESP-IDF / FreeRTOS 头（driver 与 freertos 下的头文件、esp_*.h）；
  *      平台类型（spi_device_handle_t 等）只允许出现在 .c 内部。
  *   2. 设备句柄用 void* deviceHandle 承载 spi_device_handle_t；
  *      其余字段只用 uint32_t / int32_t / uint8_t。

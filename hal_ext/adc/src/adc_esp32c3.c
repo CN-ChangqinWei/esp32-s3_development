@@ -168,7 +168,8 @@ static int adcEsp32c3OpenUnit(AdcEsp32c3* self)
 
     memset(&unitCfg, 0, sizeof(unitCfg));
     unitCfg.unit_id  = unitId;
-    unitCfg.clk_src  = ADC_RTC_CLK_SRC_DEFAULT;
+    /* ESP32-C3 无 RTC ADC 控制器，oneshot 时钟源枚举等价于 digi 时钟源 */
+    unitCfg.clk_src  = ADC_DIGI_CLK_SRC_DEFAULT;
     unitCfg.ulp_mode = ADC_ULP_MODE_DISABLE;
 
     if (ESP_OK != adc_oneshot_new_unit(&unitCfg, &unitHandle)) {

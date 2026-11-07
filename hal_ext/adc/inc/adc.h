@@ -11,7 +11,7 @@
  *
  * 依赖：
  *   本文件只允许 <stdint.h> / <stddef.h>，
- *   禁止包含 freertos/*、driver/*、esp_*.h 等平台头文件。
+ *   禁止包含 freertos、driver 下的平台头文件，以及 esp_*.h 等平台头文件。
  *
  * 字段归属（重要）：
  *   抽象层只持有 instance 与虚表；通道号 / 引脚号 / ADC 单元句柄等
@@ -45,7 +45,7 @@ extern void  (*adcFree)(void* p);
 /* ------------------------------------------------------------------
  * 枚举 / 纯值类型配置
  * 命名统一用 CamelCase，避免与 ESP-IDF 的 ADC_ATTEN_DB_12、
- * ADC_UNIT_1 等全大写标识符冲突（具象 .c 会同时包含 esp_adc/*.h）。
+ * ADC_UNIT_1 等全大写标识符冲突（具象 .c 会同时包含 esp_adc 下的头文件）。
  * ------------------------------------------------------------------ */
 typedef enum AdcAttenuation {
     AdcAtten0dB = 0,      /* 0 dB    */

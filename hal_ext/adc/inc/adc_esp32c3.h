@@ -16,8 +16,8 @@
  *   等包装函数调用；运行时实际执行 adc_esp32c3.c 内的静态接口实现。
  *
  * 头文件约束（强制）：
- *   1. 本文件【禁止】包含任何 ESP-IDF / FreeRTOS 头（esp_adc/*、esp_*.h、
- *      driver/*、freertos/*），保证使用方不被拖入平台头文件链；
+ *   1. 本文件【禁止】包含任何 ESP-IDF / FreeRTOS 头（esp_adc 下的头文件、
+ *      esp_*.h、driver 与 freertos 下的头文件），保证使用方不被拖入平台头文件链；
  *   2. 结构体字段只用 uint32_t / uint8_t / void*（平台句柄一律以 void* 承载），
  *   3. adc_oneshot_unit_handle_t、adc_cali_handle_t、adc_atten_t 等平台类型
  *      只允许出现在 adc_esp32c3.c 内部。

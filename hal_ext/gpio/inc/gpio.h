@@ -11,7 +11,7 @@
  *
  * 依赖：
  *   只允许 <stdint.h> / <stddef.h>，
- *   禁止包含 freertos/* 、driver/* 、esp_*.h 等平台头。
+ *   禁止包含 freertos、driver 下的平台头与 esp_*.h 等平台头。
  *
  * 返回值约定：
  *    0   成功
