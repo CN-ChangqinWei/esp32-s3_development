@@ -1,15 +1,13 @@
-#include <stdio.h>
-#include "global.h"
+/* ==================================================================
+ * main.c —— led_matrix 产品极简入口
+ *
+ * 只负责把控制权交给应用层 LedMatrixAppRun()，
+ * 不在此处做任何初始化、引脚配置或业务逻辑。
+ * ================================================================== */
+
+#include "led_matrix_app.h"
 
 void app_main(void)
 {
-    printf("hello world\n");
-    
-    while (1)
-    {
-        /* code */
-        GlobalInit();
-        vTaskDelay(pdMS_TO_TICKS(100));
-    }
-    
+    LedMatrixAppRun();
 }
