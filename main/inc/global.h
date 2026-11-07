@@ -39,8 +39,8 @@ typedef struct {
 
 // 全局 GPIO 映射结构体
 typedef struct {
-    UartPinMap uart1;       // UART1 引脚映射 (通常用于调试)
-    UartPinMap uart2;       // UART2 引脚映射 (通常用于通信)
+    UartPinMap uart_dbg;    // 调试串口引脚映射 (目前未启用)
+    UartPinMap uart_comm;   // 通信串口引脚映射 (ESP32-C3 上对应 UART_NUM_1)
     LedPinMap status_led;   // 状态 LED
     ButtonPinMap user_btn;  // 用户按键
     MotorPinMap motor;      // 电机控制
