@@ -18,6 +18,10 @@
 #define BOARD_MATRIX_BLOCK         8u   /* 单片 MAX7219 驱动 8×8 */
 #define BOARD_MATRIX_PIXEL_COUNT  (BOARD_MATRIX_WIDTH * BOARD_MATRIX_HEIGHT)
 
+/* 片阵列：2 × 2（chipIndex = chipY * CHIPS_X + chipX，chipIndex 0 为接 DIN 的首片） */
+#define BOARD_MATRIX_CHIPS_X      (BOARD_MATRIX_WIDTH / BOARD_MATRIX_BLOCK)
+#define BOARD_MATRIX_CHIPS_Y      (BOARD_MATRIX_HEIGHT / BOARD_MATRIX_BLOCK)
+
 #define BOARD_MATRIX_PIN_DIN      7u    /* GPIO7  -> MAX1.DIN（只进第一片） */
 #define BOARD_MATRIX_PIN_CLK      6u    /* GPIO6  -> 4 片 CLK 共用 */
 #define BOARD_MATRIX_PIN_LOAD     10u   /* GPIO10 -> 4 片 LOAD/CS# 共用 */
