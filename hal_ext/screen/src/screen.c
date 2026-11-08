@@ -217,3 +217,69 @@ int ScreenHeight(Screen* screen) {
 
     return screen->interfaces.getHeight(screen->instance);
 }
+
+/* ------------------------------------------------------------------
+ * 复用层增强：位图绘制
+ *
+ * 设计要点：
+ *   1. 不新增虚表槽位，只依赖既有 setPixel 组装，具象类零改动。
+ *   2. 屏幕宽高各取一次并缓存，避免逐像素调用 ScreenWidth / ScreenHeight。
+ *   3. 先做整行越界判断再逐像素判断目标列，越界像素不下传给具象实现。
+ *   4. bit 为 1 才点亮，bit 为 0 视为透明、保持屏幕原内容。
+ *   5. 坐标为 int32_t，x / y 可为负，靠裁剪而非报错处理。
+ * ------------------------------------------------------------------ */
+int ScreenDrawBitmap(Screen* screen, int32_t x, int32_t y, const Bitmap* bitmap) {
+    int rc = screenCheckHandle(screen);
+    int32_t widthBitmap = 0;
+    int32_t heightBitmap = 0;
+    int32_t widthScreen = 0;
+    int32_t heightScreen = 0;
+    int32_t row = 0;
+    int32_t col = 0;
+
+    if (rc != SCREEN_OK) {
+        return rc;
+    }
+    if (bitmap == NULL || bitmap->at == NULL) {
+        return SCREEN_ERR_PARAM;
+    }
+    if (bitmap->width <= 0 || bitmap->height <= 0) {
+        return SCREEN_ERR_PARAM;
+    }
+    if (screen->interfaces.setPixel == NULL) {
+        return SCREEN_ERR_UNSUPPORTED;
+    }
+
+    widthBitmap  = (int32_t)bitmap->width;
+    heightBitmap = (int32_t)bitmap->height;
+    widthScreen  = (int32_t)ScreenWidth(screen);
+    heightScreen = (int32_t)ScreenHeight(screen);
+    if (widthScreen <= 0 || heightScreen <= 0) {
+        /* 屏幕尺寸不可用：无有效绘图区域，不做任何绘制 */
+        return SCREEN_OK;
+    }
+
+    for (row = 0; row < heightBitmap; row++) {
+        int32_t targetY = y + row;
+
+        if (targetY < 0 || targetY >= heightScreen) {
+            continue;   /* 整行落在屏幕外，无需逐像素判断 */
+        }
+        for (col = 0; col < widthBitmap; col++) {
+            int32_t targetX = x + col;
+
+            if (targetX < 0 || targetX >= widthScreen) {
+                continue;   /* 该列落在屏幕外，裁剪掉 */
+            }
+            if (bitmap->at((Bitmap*)bitmap, (int)row, (int)col) == 0) {
+                continue;   /* bit 为 0 视为透明 */
+            }
+            rc = ScreenSetPixel(screen, targetX, targetY, 1);
+            if (rc < 0) {
+                return rc;  /* 底层写入失败：原样上报，中止本次绘制 */
+            }
+        }
+    }
+
+    return SCREEN_OK;
+}
