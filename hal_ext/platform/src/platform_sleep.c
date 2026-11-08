@@ -119,10 +119,24 @@ PlatformSleepInterface NewPlatformSleep(void)
 
 static void freertosSleepMs(uint32_t ms)
 {
+    TickType_t ticks;
+
     if (ms == 0) {
         return;
     }
-    vTaskDelay(pdMS_TO_TICKS(ms));
+
+    ticks = pdMS_TO_TICKS(ms);
+    if (ticks == 0) {
+        /* tick 粒度粗于请求值（如 100 Hz 下请求 2 ms）：此时 pdMS_TO_TICKS(ms)
+         * 截断为 0，而 vTaskDelay(0) 只触发一次让出、并不进入阻塞态 —— 调用方
+         * 会在原地被立刻重新调度，长时间侵占 CPU，使同级与更低优先级任务
+         * （含优先级 0 的 IDLE）得不到时间片，最终触发 task_wdt 看门狗。
+         * 因此至少阻塞 1 个 tick：保证 sleepMs(ms>0) 真正「挂起至少 ms 毫秒」
+         * 这一对外契约（实际挂起可能略长，但不会更短）。 */
+        ticks = 1;
+    }
+
+    vTaskDelay(ticks);
 }
 
 static void freertosSleepUs(uint32_t us)
