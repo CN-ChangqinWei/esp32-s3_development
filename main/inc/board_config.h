@@ -22,9 +22,11 @@
 #define BOARD_MATRIX_CHIPS_X      (BOARD_MATRIX_WIDTH / BOARD_MATRIX_BLOCK)
 #define BOARD_MATRIX_CHIPS_Y      (BOARD_MATRIX_HEIGHT / BOARD_MATRIX_BLOCK)
 
-#define BOARD_MATRIX_PIN_DIN      7u    /* GPIO7  -> MAX1.DIN（只进第一片） */
-#define BOARD_MATRIX_PIN_CLK      6u    /* GPIO6  -> 4 片 CLK 共用 */
-#define BOARD_MATRIX_PIN_LOAD     10u   /* GPIO10 -> 4 片 LOAD/CS# 共用 */
+#define BOARD_MATRIX_PIN_DIN      7u    /* GPIO7  -> MAX1.DIN（只进第一片，SPI 的 MOSI） */
+#define BOARD_MATRIX_PIN_CLK      6u    /* GPIO6  -> 4 片 CLK 共用（SPI 的 SCLK） */
+#define BOARD_MATRIX_PIN_LOAD     10u   /* GPIO10 -> 4 片 LOAD/CS# 共用（SPI 的 CS） */
+#define BOARD_MATRIX_PIN_MISO     0xFFFFFFFFu /* MAX7219 单向写，未接 MISO（= (uint32_t)-1） */
+#define BOARD_MATRIX_SPI_CLOCK_HZ 1000000u    /* 5V 逻辑裕量为负，先跑 1 MHz；实测稳定后可升到 10 MHz */
 
 /* ---------------- I2C 加速度计 SC7A20HTR ---------------- */
 #define BOARD_I2C_PORT            0u
