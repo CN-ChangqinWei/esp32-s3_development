@@ -13,6 +13,8 @@
  * 依赖：
  *   只允许 <stdint.h> / <stddef.h>，纯抽象、零平台依赖，
  *   禁止包含 freertos、driver 下的平台头与 esp_*.h 等平台头。
+ *   另允许 bitmap.h（1 bit 位图纯数据模块，同样零平台依赖），
+ *   供复用层的 ScreenDrawBitmap 组装位图绘制能力使用。
  *
  * 返回值约定：
  *    0   成功
@@ -31,6 +33,8 @@
 
 #include <stdint.h>
 #include <stddef.h>
+
+#include "bitmap.h"
 
 #ifdef __cplusplus
 extern "C" {
@@ -142,6 +146,29 @@ int ScreenGetPixel(Screen* screen, int32_t x, int32_t y);
 int ScreenFlush(Screen* screen);
 int ScreenWidth(Screen* screen);
 int ScreenHeight(Screen* screen);
+
+/* ------------------------------------------------------------------
+ * 复用层增强：位图绘制（不占用虚表槽位）
+ *
+ * 语义：
+ *   在 (x, y) 处绘制位图，只绘制 bit 为 1 的像素；
+ *   bit 为 0 视为透明，不改动屏幕原有内容。
+ *   超出屏幕范围的部分自动裁剪，不返回错误；x / y 可为负值。
+ *   位图左上角对齐到 (x, y)，行自上而下、列自左向右遍历。
+ *
+ * 实现约束：
+ *   本函数只依赖既有 setPixel 槽位组装实现，故所有具象
+ *   （max7219 点阵等）无需改动即自动获得位图绘制能力。
+ *
+ * 返回值：
+ *   SCREEN_OK               成功（含全部被裁剪、未实际绘制的空操作）
+ *   SCREEN_ERR_PARAM        参数非法（screen 为空、instance 为空、
+ *                           bitmap 为空、bitmap->at 为空、
+ *                           bitmap 宽或高小于等于 0）
+ *   SCREEN_ERR_UNSUPPORTED  底层 setPixel 槽位为空
+ *   其余负值                底层 setPixel 自定义错误码，原样上报
+ * ------------------------------------------------------------------ */
+int ScreenDrawBitmap(Screen* screen, int32_t x, int32_t y, const Bitmap* bitmap);
 
 #ifdef __cplusplus
 }
