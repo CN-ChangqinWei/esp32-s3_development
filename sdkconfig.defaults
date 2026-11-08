@@ -14,3 +14,7 @@ CONFIG_IDF_TARGET="esp32c3"
 
 # 主固件已接近 1MB（SINGLE_APP），改用 1.5MB factory 分区
 CONFIG_PARTITION_TABLE_SINGLE_APP_LARGE=y
+
+# 板上实测 Flash 为 4MB（XMC）；不写会退回 2MB，开机报
+# "Detected size(4096k) larger than the size in the binary image header(2048k)"。
+CONFIG_ESPTOOLPY_FLASHSIZE_4MB=y
