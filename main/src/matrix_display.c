@@ -12,6 +12,9 @@
  *                                            - 按 pendingPattern 叠加内容
  *                                            - ScreenFlush
  *
+ *   图案 AllOn 走例外路径：只 ScreenFill 置亮 + ScreenFlush 下发，
+ *   不画边框也不画图标，其余线程约定完全一致。
+ *
  *   结论：帧缓冲的【写】与下发给硬件的【flush】全部只在 worker 线程内
  *   发生（即 SPI 通讯线程），调用线程从不直接调用 Screen 的任何槽位，
  *   因此不存在「业务线程改帧缓冲、刷新线程同时在发帧」的数据竞争。
@@ -233,13 +236,26 @@ static void matrixDisplayRenderTask(void* param)
         return;
     }
 
+    /* volatile 单次读取到局部变量，保证一次渲染只按一个图案走 */
+    pattern = self->pendingPattern;
+
+    /* ---- 全屏点亮（LED 全亮测试）--------------------------------
+     * 不画边框、不画图标：整屏一次 fill 全部置亮，然后立即 flush。
+     * ScreenFill 只改内存帧，必须再 ScreenFlush 才会真正下发到 LED；
+     * fill 失败（参数非法 / 底层槽位未实现）则跳过本帧，不下发残帧。 */
+    if (pattern == (uint32_t)MatrixPatternAllOn) {
+        if (ScreenFill(screen, MATRIX_DISPLAY_BORDER_ON) < 0) {
+            return;
+        }
+        (void)ScreenFlush(screen);
+        return;
+    }
+
     /* 整帧重建：先清掉上一帧残留，再逐层叠加，避免残影 */
     (void)ScreenClear(screen);
 
     matrixDisplayDrawBorder(screen, (int32_t)width, (int32_t)height);
 
-    /* volatile 单次读取到局部变量，保证一次渲染只按一个图案走 */
-    pattern = self->pendingPattern;
     if (pattern == (uint32_t)MatrixPatternBorderIcon) {
         matrixDisplayDrawIcon(screen, (int32_t)width, (int32_t)height);
     } else {
@@ -326,7 +342,9 @@ int MatrixDisplayShow(MatrixDisplay* display, MatrixPattern pattern)
     if (display == NULL) {
         return MATRIX_DISPLAY_ERR_PARAM;
     }
-    if ((pattern != MatrixPatternBorderSquare) && (pattern != MatrixPatternBorderIcon)) {
+    if ((pattern != MatrixPatternBorderSquare) &&
+        (pattern != MatrixPatternBorderIcon) &&
+        (pattern != MatrixPatternAllOn)) {
         return MATRIX_DISPLAY_ERR_PARAM;
     }
 

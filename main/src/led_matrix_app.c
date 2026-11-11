@@ -30,8 +30,8 @@
  *   步骤 8  NewI2cEsp32c3
  *   步骤 9  NewAccelService（注入 bus）+ AccelServiceStart  采样线程就此运行
  *   步骤 10 NewInfoService（注入 uart_loop + provider）+ InfoServiceStart
- *   步骤 11 MatrixDisplayShow(初始图案)                     异步出图
- *   步骤 12 主循环：1 s 一拍；每 3 拍换图案；每 5 拍主动回传
+ *   步骤 11 MatrixDisplayShow(MatrixPatternAllOn)            异步出图，全亮
+ *   步骤 12 主循环：1 s 一拍；保持全亮；每 5 拍主动回传
  *
  * 失败处理策略（全部只降级，绝不 return、绝不写低 INIT 灯）：
  *   - 步骤 1 GPIO 失败：INIT 灯点不亮，但显示 / 采样链路照常（两者不依赖 GPIO）；
@@ -112,11 +112,9 @@ static const char* LED_MATRIX_APP_TAG = "led_matrix_app";
 /* MAX7219 单帧传输超时（毫秒） */
 #define APP_MAX7219_TIMEOUT_MS        (100u)
 
-/* 主循环节奏：1 s 一拍；每 3 拍换图案；每 5 拍主动回传一次 */
+/* 主循环节奏：1 s 一拍；屏幕固定全亮；每 5 拍主动回传一次 */
 #define APP_MAIN_TICK_PERIOD_MS       (1000u)
-#define APP_PATTERN_SWITCH_TICKS      (3u)
 #define APP_PUSH_TICKS                (5u)
-#define APP_PATTERN_ALTERNATE_MOD     (2u)
 
 /* ==================================================================
  * 快照供给（依赖反转的注入点）
@@ -489,10 +487,11 @@ app_step10_info:
     }
 
     /* ---------------- 步骤 11 初始出图（异步，立即返回） ----------------
-     * 真正清屏 / 画边框 / 画图标 / flush 全部在 spi_task 内完成。
+     * 启动即全屏点亮：真正清屏 / 点亮全部像素 / flush 全部在 spi_task 内完成。
+     * 这是上电后的点灯自检，post 失败只记录日志，不中断装配。
      * ------------------------------------------------------------------ */
     if (display != NULL) {
-        ret = MatrixDisplayShow(display, MatrixPatternBorderIcon);
+        ret = MatrixDisplayShow(display, MatrixPatternAllOn);   /* LED 全亮测试 */
         if (ret != MATRIX_DISPLAY_OK) {
             ESP_LOGE(LED_MATRIX_APP_TAG,
                      "initial pattern post failed, ret=%d (screen may stay blank)", ret);
@@ -500,35 +499,19 @@ app_step10_info:
     }
 
     /* ---------------- 步骤 12 主循环（常驻，永不返回） ----------------
-     * 组合根线程只做两件事：
-     *   1) 每 3 拍切换一次图案，验证刷新压力下异步链路是否稳定；
-     *   2) 每 5 拍主动请求一次回传，覆盖 release 构建下没有定时器的路径。
+     * 组合根线程只做一件事：
+     *   每 5 拍主动请求一次回传，覆盖 release 构建下没有定时器的路径。
+     * 屏幕保持启动时的全亮状态，不再切换图案；tick 保留以便日后恢复轮播。
      * 所有常驻对象在此不析构，随设备上电周期常驻。
      * ------------------------------------------------------------------ */
     ESP_LOGI(LED_MATRIX_APP_TAG,
-             "enter resident loop: pattern switch every %u s, info push every %u s",
-             (unsigned)APP_PATTERN_SWITCH_TICKS,
+             "enter resident loop: display kept all-on, info push every %u s",
              (unsigned)APP_PUSH_TICKS);
 
     tick = 0;
     while (1) {
         vTaskDelay(pdMS_TO_TICKS(APP_MAIN_TICK_PERIOD_MS));
         tick++;
-
-        if (0u == (tick % APP_PATTERN_SWITCH_TICKS)) {
-            const MatrixPattern pattern =
-                (0u != (((tick / APP_PATTERN_SWITCH_TICKS) % APP_PATTERN_ALTERNATE_MOD)))
-                    ? MatrixPatternBorderSquare
-                    : MatrixPatternBorderIcon;
-
-            if (display != NULL) {
-                ret = MatrixDisplayShow(display, pattern);
-                if (ret != MATRIX_DISPLAY_OK) {
-                    ESP_LOGW(LED_MATRIX_APP_TAG,
-                             "pattern post failed, ret=%d (dropped for the tick)", ret);
-                }
-            }
-        }
 
         if (0u == (tick % APP_PUSH_TICKS)) {
             if (info != NULL) {
