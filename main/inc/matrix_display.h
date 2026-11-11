@@ -70,14 +70,17 @@ typedef struct MatrixDisplay MatrixDisplay;
  *   BorderIcon    边框 + 菱形图标（经 Bitmap 载体 + ScreenDrawBitmap 落帧）
  *   AllOn         全屏点亮（LED 全亮测试：不画边框与图标，
  *                 整屏一次 ScreenFill 置亮后 ScreenFlush）
+ *   AllOff        全屏熄灭（LED 全灭测试：不画边框与图标，
+ *                 整屏一次 ScreenFill 置零后 ScreenFlush）
  *
  * 前两种图案都先画 1 像素边框，差别只在中部内容；
- * AllOn 例外：整屏填充，与边框 / 图标互斥。
+ * AllOn / AllOff 例外：整屏填充（全亮 / 全灭），与边框 / 图标互斥。
  * ------------------------------------------------------------------ */
 typedef enum MatrixPattern {
     MatrixPatternBorderSquare = 0,
     MatrixPatternBorderIcon   = 1,
-    MatrixPatternAllOn        = 2    /* 全屏点亮（LED 全亮测试） */
+    MatrixPatternAllOn        = 2,   /* 全屏点亮（LED 全亮测试） */
+    MatrixPatternAllOff       = 3    /* 全屏熄灭（LED 全灭测试） */
 } MatrixPattern;
 
 /* ------------------------------------------------------------------

@@ -251,6 +251,18 @@ static void matrixDisplayRenderTask(void* param)
         return;
     }
 
+    /* ---- 全屏熄灭（LED 全灭测试）--------------------------------
+     * 与全屏点亮对称：不画边框、不画图标，整屏一次 fill 全部置零，
+     * 然后立即 flush。入参像素值 0 即熄灭电平（点亮值为非零）；
+     * fill 失败则直接返回本帧，不 flush 只改了一半的内存帧。 */
+    if (pattern == (uint32_t)MatrixPatternAllOff) {
+        if (ScreenFill(screen, 0) < 0) {
+            return;
+        }
+        (void)ScreenFlush(screen);
+        return;
+    }
+
     /* 整帧重建：先清掉上一帧残留，再逐层叠加，避免残影 */
     (void)ScreenClear(screen);
 
@@ -344,7 +356,8 @@ int MatrixDisplayShow(MatrixDisplay* display, MatrixPattern pattern)
     }
     if ((pattern != MatrixPatternBorderSquare) &&
         (pattern != MatrixPatternBorderIcon) &&
-        (pattern != MatrixPatternAllOn)) {
+        (pattern != MatrixPatternAllOn) &&
+        (pattern != MatrixPatternAllOff)) {
         return MATRIX_DISPLAY_ERR_PARAM;
     }
 

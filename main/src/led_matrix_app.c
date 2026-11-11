@@ -30,8 +30,8 @@
  *   步骤 8  NewI2cEsp32c3
  *   步骤 9  NewAccelService（注入 bus）+ AccelServiceStart  采样线程就此运行
  *   步骤 10 NewInfoService（注入 uart_loop + provider）+ InfoServiceStart
- *   步骤 11 MatrixDisplayShow(MatrixPatternAllOn)            异步出图，全亮
- *   步骤 12 主循环：1 s 一拍；保持全亮；每 5 拍主动回传
+ *   步骤 11 MatrixDisplayShow(MatrixPatternAllOff)           异步出图，全灭
+ *   步骤 12 主循环：1 s 一拍；保持全灭；每 5 拍主动回传
  *
  * 失败处理策略（全部只降级，绝不 return、绝不写低 INIT 灯）：
  *   - 步骤 1 GPIO 失败：INIT 灯点不亮，但显示 / 采样链路照常（两者不依赖 GPIO）；
@@ -112,7 +112,7 @@ static const char* LED_MATRIX_APP_TAG = "led_matrix_app";
 /* MAX7219 单帧传输超时（毫秒） */
 #define APP_MAX7219_TIMEOUT_MS        (100u)
 
-/* 主循环节奏：1 s 一拍；屏幕固定全亮；每 5 拍主动回传一次 */
+/* 主循环节奏：1 s 一拍；屏幕固定全灭；每 5 拍主动回传一次 */
 #define APP_MAIN_TICK_PERIOD_MS       (1000u)
 #define APP_PUSH_TICKS                (5u)
 
@@ -487,11 +487,11 @@ app_step10_info:
     }
 
     /* ---------------- 步骤 11 初始出图（异步，立即返回） ----------------
-     * 启动即全屏点亮：真正清屏 / 点亮全部像素 / flush 全部在 spi_task 内完成。
-     * 这是上电后的点灯自检，post 失败只记录日志，不中断装配。
+     * 启动即全屏熄灭：真正清屏 / 熄灭全部像素 / flush 全部在 spi_task 内完成。
+     * 这是上电后的灭灯自检，post 失败只记录日志，不中断装配。
      * ------------------------------------------------------------------ */
     if (display != NULL) {
-        ret = MatrixDisplayShow(display, MatrixPatternAllOn);   /* LED 全亮测试 */
+        ret = MatrixDisplayShow(display, MatrixPatternAllOff);   /* LED 全灭测试 */
         if (ret != MATRIX_DISPLAY_OK) {
             ESP_LOGE(LED_MATRIX_APP_TAG,
                      "initial pattern post failed, ret=%d (screen may stay blank)", ret);
@@ -501,11 +501,11 @@ app_step10_info:
     /* ---------------- 步骤 12 主循环（常驻，永不返回） ----------------
      * 组合根线程只做一件事：
      *   每 5 拍主动请求一次回传，覆盖 release 构建下没有定时器的路径。
-     * 屏幕保持启动时的全亮状态，不再切换图案；tick 保留以便日后恢复轮播。
+     * 屏幕保持启动时的全灭状态，不再切换图案；tick 保留以便日后恢复轮播。
      * 所有常驻对象在此不析构，随设备上电周期常驻。
      * ------------------------------------------------------------------ */
     ESP_LOGI(LED_MATRIX_APP_TAG,
-             "enter resident loop: display kept all-on, info push every %u s",
+             "enter resident loop: display kept all-off, info push every %u s",
              (unsigned)APP_PUSH_TICKS);
 
     tick = 0;
