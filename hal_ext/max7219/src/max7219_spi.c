@@ -41,6 +41,7 @@
 #define MAX7219_SPI_REG_INTENSITY   (0x0Au)
 #define MAX7219_SPI_REG_SCAN_LIMIT  (0x0Bu)
 #define MAX7219_SPI_REG_SHUTDOWN    (0x0Cu)
+#define MAX7219_SPI_REG_DISPLAY_TEST (0x0Fu)  /* Display Test（地址 0x0F）*/
 
 /* 寄存器语义常量 */
 #define MAX7219_SPI_DIGIT_COUNT         (8u)     /* 8 个 digit 寄存器 */
@@ -49,8 +50,10 @@
 #define MAX7219_SPI_SCAN_LIMIT_MIN      (1u)     /* 有效扫描位数 1 到 8 */
 #define MAX7219_SPI_SCAN_LIMIT_MAX      (8u)     /* 寄存器值 = 位数 - 1，即 0x00 到 0x07 */
 #define MAX7219_SPI_DECODE_NONE         (0x00u)  /* 不译码（原始段码） */
-#define MAX7219_SPI_SHUTDOWN_ON         (0x01u)  /* 进入 shutdown（关闭显示）*/
-#define MAX7219_SPI_SHUTDOWN_OFF        (0x00u)  /* 退出 shutdown（正常显示）*/
+/* MAX7219 的 0x0C：1 = 正常工作，0 = 关断（与 enable = 1 表示关断的直觉相反，故取反）*/
+#define MAX7219_SPI_SHUTDOWN_NORMAL     (0x01u)  /* 正常工作（点亮显示）*/
+#define MAX7219_SPI_SHUTDOWN_ENTER      (0x00u)  /* 进入关断（关闭显示）*/
+#define MAX7219_SPI_DISPLAY_TEST_OFF    (0x00u)  /* 0 = 正常显示；1 = 全部 LED 强制点亮，仅产线测试用 */
 #define MAX7219_SPI_DEFAULT_INTENSITY   (8u)     /* 上电默认亮度：中等 */
 #define MAX7219_SPI_DEFAULT_TIMEOUT_MS  (100u)   /* config.timeoutMs 传 0 时采用的超时 */
 
@@ -102,11 +105,17 @@ static int max7219SpiBroadcast(Max7219Spi* self, uint8_t reg, uint8_t value) {
  * ================================================================== */
 
 /* 上电初始化：依次下发上电默认配置，与位带实现保持一致：
- *   ① shutdown(0)    —— 退出 shutdown，进入正常显示
- *   ② decodeMode 0x00 —— 不译码（原始段码）
- *   ③ scanLimit 8    —— 8 位扫描（寄存器值 0x07）
- *   ④ intensity 8    —— 中等亮度
- *   ⑤ clear          —— 8 轮整帧广播清屏
+ *   ① shutdown(0)     —— 退出关断，进入正常显示（0x0C = 0x01）
+ *   ② displayTest 0   —— 关测试模式（0x0F = 0x00）
+ *   ③ decodeMode 0x00 —— 不译码（原始段码，0x09）
+ *   ④ scanLimit 8     —— 8 位扫描（0x0B = 0x07）
+ *   ⑤ intensity 8     —— 中等亮度（0x0A = 0x08）
+ *   ⑥ clear           —— 8 轮整帧广播清屏（0x01 到 0x08 写 0x00）
+ * 注意顺序：MAX7219 在 Shutdown 模式下会忽略 digits 与部分控制寄存器的写入，
+ * 因此必须【先】写 0x0C=0x01 退出关断，【再】写 0x0F=0 关 Display Test，
+ * 否则关测试模式的写入可能被吞掉，表现为上电后 LED 全亮且清屏无效。
+ * 第 ② 步不可省略：若 0x0F 被噪声或 0xFF 帧误置为 1，芯片进入测试模式，
+ * 所有 LED 强制点亮且忽略 digit 数据，任何清屏都无效。
  * 任一步失败立即返回，不继续下发（避免半配置状态）。
  * 本函数不触碰片选以外的总线细节，也不做速率协商（归调用方的 Spi 具象）。 */
 static int max7219SpiInit(void* instance) {
@@ -117,7 +126,14 @@ static int max7219SpiInit(void* instance) {
         return MAX7219_SPI_ERR_PARAM;
     }
 
+    /* ① 退出关断：0x0C = 0x01 才是正常工作，必须最先写，后续寄存器写才会生效 */
     result = max7219SpiShutdown((void*)self, 0);
+    if (MAX7219_SPI_OK != result) {
+        return result;
+    }
+    /* ② 关测试模式：0x0F = 0x00，仅产线测试才置 1（放在退出关断之后才不会被吞掉） */
+    result = max7219SpiBroadcast(self, (uint8_t)MAX7219_SPI_REG_DISPLAY_TEST,
+                                 (uint8_t)MAX7219_SPI_DISPLAY_TEST_OFF);
     if (MAX7219_SPI_OK != result) {
         return result;
     }
@@ -137,12 +153,13 @@ static int max7219SpiInit(void* instance) {
     return max7219SpiClear((void*)self);
 }
 
-/* shutdown：enable 非 0 -> 关闭显示（写 0x01）；为 0 -> 正常显示（写 0x00）；
- * 广播到链上所有片。 */
+/* shutdown：enable 非 0 -> 进入关断（0x0C 写 0x00）；为 0 -> 正常工作（0x0C 写 0x01）；
+ * MAX7219 的 0x0C 是 bit0 = 1 表示正常工作、bit0 = 0 表示关断，
+ * 与「enable = 1 表示关断」的直觉相反，故此处显式取反。广播到链上所有片。 */
 static int max7219SpiShutdown(void* instance, int enable) {
     Max7219Spi* self = (Max7219Spi*)instance;
-    uint8_t value = (0 != enable) ? (uint8_t)MAX7219_SPI_SHUTDOWN_ON
-                                  : (uint8_t)MAX7219_SPI_SHUTDOWN_OFF;
+    uint8_t value = (0 != enable) ? (uint8_t)MAX7219_SPI_SHUTDOWN_ENTER
+                                  : (uint8_t)MAX7219_SPI_SHUTDOWN_NORMAL;
 
     if (NULL == self) {
         return MAX7219_SPI_ERR_PARAM;
