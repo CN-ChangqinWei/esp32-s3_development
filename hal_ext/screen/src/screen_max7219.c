@@ -125,6 +125,7 @@ static uint8_t screenMax7219NormalizeOn(int on) {
  *   y = chipY * blockSize + row  （全局行）
  *   x = chipX * blockSize + col  （全局列）
  *   col = 0 为最左列，落在 data 的 bit(blockSize - 1 - col)
+ * 数据极性由构造参数 invertDigit 决定，本函数不再硬编码任何模块特性。
  * blockSize 已在构造时限定为 1 到 8，故移位量恒在 0 到 7，不会越界。 */
 static uint8_t screenMax7219PackRow(const ScreenMax7219* self,
                                     uint32_t chipX, uint32_t chipY, uint32_t row) {
@@ -152,13 +153,14 @@ static uint8_t screenMax7219PackRow(const ScreenMax7219* self,
         }
     }
 
-    /* 硬件反相：本板 MAX7219 点阵模块的段输出是反相的，实测 digit 位 = 0
-     * 才点亮 LED，位 = 1 反而熄灭（表现为 Fill(1) 全灭、Fill(0) 全亮）。
+    /* 极性由 invertDigit 决定（构造参数注入，默认 0 为正相）：
+     *   正相：保持 data 原样，digit 位 1 点亮，符合 MAX7219 手册默认行为；
+     *   反相：按位取反后下发，digit 位 0 才点亮，适配段输出反相的点阵模块。
      * 帧内存统一保持「1 = 亮」的语义（SetPixel / Fill / DrawBitmap 都按此约定），
-     * 只在打包成硬件 digit 字节的这一刻按位取反，硬件差异不外泄到上层：
+     * 只在打包成硬件 digit 字节的这一刻按极性处理，硬件差异不外泄到上层：
      * 上层语义、GetPixel 回读、各 MatrixPattern 图案均无需改动。
-     * blockSize 小于 8 时，未使用的低位取反后为 1，即「熄灭」，同样符合预期。 */
-    return (uint8_t)(~data);
+     * blockSize 小于 8 时，未使用的低位在反相下为 1，即「熄灭」，同样符合预期。 */
+    return (0u != self->invertDigit) ? (uint8_t)(~data) : data;
 }
 
 /* 把内存像素表清空，不动硬件（clear / deinit 共用） */
@@ -200,8 +202,9 @@ static int screenMax7219Init(void* instance) {
     if (SCREEN_MAX7219_OK != result) {
         return result;
     }
-    /* ③ 硬件显示寄存器归零：本板点阵反相，直接写 0x00（Max7219Clear）会全亮，
-     *    因此改用「内存清空 + 本层 flush」，由 pack 取反后下发 0xFF，硬件表现为全灭。
+    /* ③ 硬件显示寄存器归零：不经 Max7219Clear 直接写 0x00，
+     *    而是走「内存清空 + 本层 flush」，由 pack 按 invertDigit 产出对应的
+     *    「全灭」字节（正相 0x00、反相 0xFF），两种极性都正确熄屏。
      *    这样也保证 init 结束时内存帧与硬件一致。 */
     result = screenMax7219WipeMemory(self);
     if (SCREEN_MAX7219_OK != result) {
@@ -230,8 +233,8 @@ static int screenMax7219Deinit(void* instance) {
         return result;
     }
 
-    /* ② 经本层 flush 把「全灭」下发到硬件：本板反相，硬写 0x00（Max7219Clear）
-     *    等于全亮，故改走 pack 取反后的 0xFF，释放前把面板熄掉。 */
+    /* ② 经本层 flush 把「全灭」下发到硬件：由 pack 按 invertDigit 决定实际
+     *    字节（正相 0x00、反相 0xFF），释放前把面板熄掉，两种极性均适用。 */
     return screenMax7219Flush(self);
 }
 
@@ -501,6 +504,8 @@ Screen* NewScreenMax7219(const ScreenMax7219Config* config) {
     ins->blockSize = config->blockSize;
     ins->chipsX    = config->chipsX;
     ins->chipsY    = config->chipsY;
+    /* 极性归一化为 0 或 1：非 0 即反相，容忍调用方传入任意非零值 */
+    ins->invertDigit = (0u != config->invertDigit) ? (uint8_t)1u : (uint8_t)0u;
     ins->width     = config->chipsX * config->blockSize;
     ins->height    = config->chipsY * config->blockSize;
 

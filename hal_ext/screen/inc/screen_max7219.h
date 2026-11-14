@@ -57,6 +57,7 @@ extern "C" {
  *   blockSize : 每片边长（像素），MAX7219 固定为 8；合法范围 1 到 8
  *   chipsX    : 横向片数，必须大于等于 1
  *   chipsY    : 纵向片数，必须大于等于 1
+ *   invertDigit : digit 数据极性，0 正相 / 1 反相，非 0 一律按 1 处理
  *   级联总片数 chipsX 乘 chipsY 不得大于 64
  * ------------------------------------------------------------------ */
 typedef struct ScreenMax7219Config {
@@ -64,6 +65,10 @@ typedef struct ScreenMax7219Config {
     uint32_t blockSize;   /* 每片边长，MAX7219 = 8 */
     uint32_t chipsX;      /* 横向片数 */
     uint32_t chipsY;      /* 纵向片数 */
+    /* digit 数据极性：0 = 正相（digit 位 1 = 点亮，MAX7219 手册默认行为）
+     *                 1 = 反相（digit 位 0 = 点亮，部分点阵模块如此）
+     * 只影响「像素 -> hardware digit 字节」的打包，不影响帧内存「1 = 亮」的语义。 */
+    uint8_t invertDigit;
 } ScreenMax7219Config;
 
 /* ------------------------------------------------------------------
@@ -80,6 +85,7 @@ typedef struct ScreenMax7219 {
     uint32_t blockSize;  /* 每片边长（像素），MAX7219 为 8 */
     uint32_t chipsX;     /* 横向片数 */
     uint32_t chipsY;     /* 纵向片数 */
+    uint8_t  invertDigit;/* digit 极性：0 正相 / 1 反相，构造时归一化为 0 或 1 */
     uint32_t width;      /* 像素宽 = chipsX * blockSize */
     uint32_t height;     /* 像素高 = chipsY * blockSize */
     uint8_t* pixels;     /* width * height 字节，非 0 即点亮 */
