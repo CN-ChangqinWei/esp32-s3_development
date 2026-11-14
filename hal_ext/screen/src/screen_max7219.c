@@ -152,7 +152,13 @@ static uint8_t screenMax7219PackRow(const ScreenMax7219* self,
         }
     }
 
-    return data;
+    /* 硬件反相：本板 MAX7219 点阵模块的段输出是反相的，实测 digit 位 = 0
+     * 才点亮 LED，位 = 1 反而熄灭（表现为 Fill(1) 全灭、Fill(0) 全亮）。
+     * 帧内存统一保持「1 = 亮」的语义（SetPixel / Fill / DrawBitmap 都按此约定），
+     * 只在打包成硬件 digit 字节的这一刻按位取反，硬件差异不外泄到上层：
+     * 上层语义、GetPixel 回读、各 MatrixPattern 图案均无需改动。
+     * blockSize 小于 8 时，未使用的低位取反后为 1，即「熄灭」，同样符合预期。 */
+    return (uint8_t)(~data);
 }
 
 /* 把内存像素表清空，不动硬件（clear / deinit 共用） */
@@ -174,7 +180,7 @@ static int screenMax7219WipeMemory(ScreenMax7219* self) {
  * 接口实现
  * ================================================================== */
 
-/* 上电初始化：先配好驱动（初始化 / 亮度 / 清屏），再把内存像素表清零。
+/* 上电初始化：先配好驱动（初始化 / 亮度），再让内存帧与硬件同时熄屏。
  * 顺序固定：驱动未配置成功就不动像素表；任一步失败立即返回其负值。 */
 static int screenMax7219Init(void* instance) {
     ScreenMax7219* self = (ScreenMax7219*)instance;
@@ -194,16 +200,21 @@ static int screenMax7219Init(void* instance) {
     if (SCREEN_MAX7219_OK != result) {
         return result;
     }
-    /* ③ 硬件显示寄存器全部清零，避免上电残留乱码 */
-    result = Max7219Clear(self->driver);
+    /* ③ 硬件显示寄存器归零：本板点阵反相，直接写 0x00（Max7219Clear）会全亮，
+     *    因此改用「内存清空 + 本层 flush」，由 pack 取反后下发 0xFF，硬件表现为全灭。
+     *    这样也保证 init 结束时内存帧与硬件一致。 */
+    result = screenMax7219WipeMemory(self);
     if (SCREEN_MAX7219_OK != result) {
         return result;
     }
-    /* ④ 内存帧同步清零，保证此刻内存与硬件一致 */
-    return screenMax7219WipeMemory(self);
+    result = screenMax7219Flush(self);
+    if (SCREEN_MAX7219_OK != result) {
+        return result;
+    }
+    return SCREEN_MAX7219_OK;      /* 原来第 ④ 步 wipe 已合并到这里，去掉重复调用 */
 }
 
-/* 反初始化：内存帧与硬件显示一起归零，但【不】销毁注入的驱动
+/* 反初始化：内存帧与硬件显示一起熄屏，但【不】销毁注入的驱动
  * （所有权始终在调用方，复位后可再次 init 复用同一实例）。 */
 static int screenMax7219Deinit(void* instance) {
     ScreenMax7219* self = (ScreenMax7219*)instance;
@@ -213,12 +224,15 @@ static int screenMax7219Deinit(void* instance) {
         return SCREEN_MAX7219_ERR_PARAM;
     }
 
+    /* ① 内存帧清零，后续 flush 读到的就是「全灭」 */
     result = screenMax7219WipeMemory(self);
     if (SCREEN_MAX7219_OK != result) {
         return result;
     }
 
-    return Max7219Clear(self->driver);
+    /* ② 经本层 flush 把「全灭」下发到硬件：本板反相，硬写 0x00（Max7219Clear）
+     *    等于全亮，故改走 pack 取反后的 0xFF，释放前把面板熄掉。 */
+    return screenMax7219Flush(self);
 }
 
 /* 全屏熄灭：只改内存，不自动 flush（由调用方显式 ScreenFlush） */
