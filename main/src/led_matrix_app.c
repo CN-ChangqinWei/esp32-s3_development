@@ -6,7 +6,7 @@
  *
  *   spi_task   （优先级 5，栈 4096）  LED 刷新专用线程
  *       由 EventLoop spi_loop 的 worker 承担线程体；
- *       MatrixDisplayShow 只往该队列投递渲染任务，
+ *       MatrixDisplayShow / BlockTilerShowLetterT 只往该队列投递渲染任务，
  *       屏幕帧缓冲的读写与 ScreenFlush 永远只发生在这一条线程里。
  *
  *   uart_task  （优先级 4，栈 4096）  信息回传专用线程
@@ -27,17 +27,20 @@
  *   步骤 5  spi_task 线程对象 + spi_loop + start   LED 刷新线程就此运行
  *   步骤 6  uart_task 线程对象 + uart_loop + start 信息回传线程就此运行
  *   步骤 7  NewMatrixDisplay（注入 screen + spi_loop）
+ *   步骤 7b NewBlockTiler（注入 screen + spi_loop）方向自检装配
  *   步骤 8  NewI2cEsp32c3
  *   步骤 9  NewAccelService（注入 bus）+ AccelServiceStart  采样线程就此运行
  *   步骤 10 NewInfoService（注入 uart_loop + provider）+ InfoServiceStart
- *   步骤 11 MatrixDisplayShow(MatrixPatternAllOff)           异步出图，全灭
- *   步骤 12 主循环：1 s 一拍；保持全灭；每 5 拍主动回传
+ *   步骤 11 BlockTilerShowLetterT          异步出图，每个 8x8 块显示字母 T
+ *   步骤 12 主循环：1 s 一拍；保持启动画面；每 5 拍主动回传
  *
  * 失败处理策略（全部只降级，绝不 return、绝不写低 INIT 灯）：
  *   - 步骤 1 GPIO 失败：INIT 灯点不亮，但显示 / 采样链路照常（两者不依赖 GPIO）；
  *   - 步骤 2 到 5 任一失败：goto 步骤 6，跳过后续显示链路，
  *     步骤 7 再按 spiLoopReady 判定是否建刷新服务，UART / 采样链路照常；
  *   - 步骤 6 UART 线程失败：goto 步骤 7，跳过信息服务，显示链路照常；
+ *   - 步骤 7b 方向自检装配失败：只跳过字母 T 自检（屏幕停在清屏后的空白），
+ *     采样链路 / 信息服务 / 主循环照常；
  *   - 步骤 8 / 9 失败：goto 步骤 10，accel 为 NULL 时 providerContext 传 NULL，
  *     provider 内部判空返回 valid = 0，信息服务仍可建立；
  *   - 步骤 10 失败：跳过信息服务，初始出图与主循环照常。
@@ -48,11 +51,12 @@
  *   app_types.h       AccelSample 与采样 / 回传周期
  *   gpio / spi / max7219 / screen / i2c 抽象父类 + 各自具象构造
  *   accel_service / matrix_display / info_service 三个服务
+ *   block_tiler       方向自检：把屏幕按 8x8 分块逐块贴字母 T
  *   platform / thread_object / event_loop 线程与队列抽象
  *
  * 所有权与寿命：
- *   gpio / spi / driver / screen / bus / accel / info / display 以及两个
- *   线程对象、两个事件循环全部是【嵌入式常驻对象】，随设备上电常驻，
+ *   gpio / spi / driver / screen / bus / accel / info / display / tiler
+ *   以及两个线程对象、两个事件循环全部是【嵌入式常驻对象】，随设备上电常驻，
  *   故意不析构（本文件不出现任何 Delete 调用），主循环永不退出。
  * ================================================================== */
 
@@ -76,6 +80,8 @@
 
 #include "i2c.h"
 #include "i2c_esp32c3.h"
+
+#include "block_tiler.h"   /* 方向自检：按 8x8 分块逐块贴字母 T（显示扩展，非业务） */
 
 #include "accel_service.h"
 #include "matrix_display.h"
@@ -112,7 +118,7 @@ static const char* LED_MATRIX_APP_TAG = "led_matrix_app";
 /* MAX7219 单帧传输超时（毫秒） */
 #define APP_MAX7219_TIMEOUT_MS        (100u)
 
-/* 主循环节奏：1 s 一拍；屏幕固定全灭；每 5 拍主动回传一次 */
+/* 主循环节奏：1 s 一拍；屏幕固定启动画面；每 5 拍主动回传一次 */
 #define APP_MAIN_TICK_PERIOD_MS       (1000u)
 #define APP_PUSH_TICKS                (5u)
 
@@ -175,6 +181,7 @@ void LedMatrixAppRun(void)
     EventLoop*    uartLoop   = NULL;   /* uart_loop：信息回传任务队列 */
 
     MatrixDisplay* display = NULL;
+    BlockTiler*    tiler   = NULL;   /* 方向自检：每个 8x8 块显示字母 T */
     AccelService*  accel   = NULL;
     InfoService*   info    = NULL;
 
@@ -419,6 +426,29 @@ app_step7_display:
                  "matrix display skipped: screen / spi refresh loop not ready");
     }
 
+    /* ---------------- 步骤 7b 方向自检装配（注入 screen + spi_loop） ----------------
+     * 每个 8x8 分块显示字母 T，用于现场确认片阵列方向与分块顺序是否正确。
+     * 注入沿用显示链路的同一对 screen / spiLoop，本文件不硬编码屏幕对象；
+     * screen 或已 start 的 spi_loop 任一缺失就整段跳过（不把空指针交给构造），
+     * 构造失败只记录日志，绝不中断装配。
+     * --------------------------------------------------------------------------------- */
+    if ((screen != NULL) && (spiLoop != NULL) && (0 != spiLoopReady)) {
+        tiler = NewBlockTiler(&(BlockTilerConfig){
+            .screen = screen,
+            .loop   = spiLoop,
+        });
+        if (tiler == NULL) {
+            ESP_LOGE(LED_MATRIX_APP_TAG,
+                     "NewBlockTiler failed: orientation self-check disabled");
+        } else {
+            ESP_LOGI(LED_MATRIX_APP_TAG,
+                     "block tiler ready: letter-T shown per 8x8 block at startup");
+        }
+    } else {
+        ESP_LOGW(LED_MATRIX_APP_TAG,
+                 "block tiler skipped: screen / spi refresh loop not ready");
+    }
+
     /* ---------------- 步骤 8 I2C 总线（抽象） ----------------
      * 总线失败即没有采样服务：直接跳到步骤 10，信息服务仍以 NULL 上下文建立。
      * -------------------------------------------------------- */
@@ -487,26 +517,31 @@ app_step10_info:
                  "info service skipped: uart refresh loop not ready");
     }
 
-    /* ---------------- 步骤 11 初始出图（异步，立即返回） ----------------
-     * 启动即全屏熄灭：真正清屏 / 熄灭全部像素 / flush 全部在 spi_task 内完成。
-     * 这是上电后的灭灯自检，post 失败只记录日志，不中断装配。
+    /* ---------------- 步骤 11 启动出图（异步，立即返回） ----------------
+     * 启动即在每个 8x8 分块显示字母 T（方向自检）：真正清屏 / 逐块贴 T /
+     * flush 全部在 spi_task 内完成。post 失败只记录日志，不中断装配。
+     * display 对象保留装配（本次不再出图案），供日后恢复图案轮播使用。
      * ------------------------------------------------------------------ */
-    if (display != NULL) {
-        ret = MatrixDisplayShow(display, MatrixPatternAllOff);   /* LED 全灭测试 */
-        if (ret != MATRIX_DISPLAY_OK) {
+    if (tiler != NULL) {
+        ret = BlockTilerShowLetterT(tiler);
+        if (ret != 0) {
             ESP_LOGE(LED_MATRIX_APP_TAG,
-                     "initial pattern post failed, ret=%d (screen may stay blank)", ret);
+                     "letter-T post failed, ret=%d (screen may stay blank)", ret);
         }
+    } else {
+        ESP_LOGW(LED_MATRIX_APP_TAG,
+                 "letter-T self-check skipped: block tiler not ready");
     }
 
     /* ---------------- 步骤 12 主循环（常驻，永不返回） ----------------
      * 组合根线程只做一件事：
      *   每 5 拍主动请求一次回传，覆盖 release 构建下没有定时器的路径。
-     * 屏幕保持启动时的全灭状态，不再切换图案；tick 保留以便日后恢复轮播。
+     * 屏幕保持启动时的字母 T 自检画面，不再切换图案；tick 保留以便日后恢复轮播。
      * 所有常驻对象在此不析构，随设备上电周期常驻。
      * ------------------------------------------------------------------ */
     ESP_LOGI(LED_MATRIX_APP_TAG,
-             "enter resident loop: display kept all-off, info push every %u s",
+             "enter resident loop: display kept at startup letter-T frame, "
+             "info push every %u s",
              (unsigned)APP_PUSH_TICKS);
 
     tick = 0;
