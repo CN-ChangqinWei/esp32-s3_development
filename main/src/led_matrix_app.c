@@ -286,10 +286,11 @@ void LedMatrixAppRun(void)
      * 宽高由 chipsX / chipsY 与 blockSize 推导，后续显示操作全经 Screen*。
      * ---------------------------------------------------------------------------- */
     screen = NewScreenMax7219(&(ScreenMax7219Config){
-        .driver    = driver,
-        .blockSize = BOARD_MATRIX_BLOCK,
-        .chipsX    = BOARD_MATRIX_CHIPS_X,
-        .chipsY    = BOARD_MATRIX_CHIPS_Y,
+        .driver      = driver,
+        .blockSize   = BOARD_MATRIX_BLOCK,
+        .chipsX      = BOARD_MATRIX_CHIPS_X,
+        .chipsY      = BOARD_MATRIX_CHIPS_Y,
+        .invertDigit = (uint8_t)BOARD_MATRIX_INVERT_DIGIT,
     });
     if (screen == NULL) {
         ESP_LOGE(LED_MATRIX_APP_TAG,

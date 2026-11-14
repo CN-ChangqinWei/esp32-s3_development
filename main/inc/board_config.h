@@ -28,6 +28,10 @@
 #define BOARD_MATRIX_PIN_MISO     0xFFFFFFFFu /* MAX7219 单向写，未接 MISO（= (uint32_t)-1） */
 #define BOARD_MATRIX_SPI_CLOCK_HZ 1000000u    /* 5V 逻辑裕量为负，先跑 1 MHz；实测稳定后可升到 10 MHz */
 
+/* 点阵 digit 极性：0 = 正相（位1亮），1 = 反相（位0亮）。
+ * 本板实测为反相：ScreenFill(0) 全亮、ScreenFill(1) 全灭。换模块时只改这一处。 */
+#define BOARD_MATRIX_INVERT_DIGIT   1u
+
 /* ---------------- I2C 加速度计 SC7A20HTR ---------------- */
 #define BOARD_I2C_PORT            0u
 #define BOARD_I2C_PIN_SDA         0u    /* GPIO0 = SDx（该脚兼 XTAL_32K_P） */
